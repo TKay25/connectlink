@@ -35877,6 +35877,12 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     }
 
     // ---- itemised quotation: construction works ----
+    // The items table and the work schedule are built here and placed further
+    // down, because "Include after the work schedule" is a PLACEMENT: the items
+    // must move below the schedule. They used to be pushed in a fixed order, so
+    // that option changed the heading and nothing else.
+    var constructionItemsBlockHtml = '';
+    var workScheduleBlockHtml = '';
     if (showConstructionItemsTable && isCon) {
         var conRows = [];
         items.forEach(function (it, idx) {
@@ -35914,7 +35920,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                 cells: [{ h: 'TOTAL', a: 'right', span: 5 }, { h: money2(vatCalc.total), a: 'right' }]
             });
         }
-        parts.push(Q.block('<div style="text-align:center;margin-bottom:12px;">'
+        constructionItemsBlockHtml = (Q.block('<div style="text-align:center;margin-bottom:12px;">'
             + '<span class="clq-callout">For a full breakdown of your quotation, see the items below.</span></div>'
             + Q.section('Construction Items')
             + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '34%' },
@@ -35939,10 +35945,23 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                 { h: s.endDate ? new Date(s.endDate).toLocaleDateString('en-GB') : '', a: 'center' }
             ];
         });
-        parts.push(Q.block(Q.section('Work Schedule')
+        workScheduleBlockHtml = Q.block(Q.section('Work Schedule')
             + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '46%' },
                        { label: 'Start Date', a: 'center', w: '24%' }, { label: 'End Date', a: 'center', w: '24%' }],
-                      schRows, [])));
+                      schRows, []));
+    }
+
+    // ---- place the two tables ----
+    // "Include after the work schedule" puts the items UNDER the schedule; every
+    // other placement leaves them where they are (below the summary). Only the
+    // option that names the schedule prints one at all -- see
+    // quotationShowsWorkSchedule.
+    if (normalizedPlacement === 'after_schedule' && workScheduleBlockHtml) {
+        parts.push(workScheduleBlockHtml);
+        if (constructionItemsBlockHtml) parts.push(constructionItemsBlockHtml);
+    } else {
+        if (constructionItemsBlockHtml) parts.push(constructionItemsBlockHtml);
+        if (workScheduleBlockHtml) parts.push(workScheduleBlockHtml);
     }
 
     // ---- terms beside the banking details ----

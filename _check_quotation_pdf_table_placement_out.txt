@@ -1,0 +1,18 @@
+PASS  the placement rule is one shared function
+PASS  the PDF builder consults it
+PASS  the early fallback builder consults it too
+PASS  the items table is built, not pushed in a fixed order
+PASS  "after schedule" places the items under the schedule
+PASS  construction + exclude: no schedule
+PASS  construction + below summary: no schedule
+PASS  construction + after schedule: schedule
+PASS  a quotation never asked keeps its schedule
+PASS  an unknown answer falls back to below-summary
+PASS  PDF exclude: no Work Schedule
+PASS  PDF exclude: no Construction Items
+PASS  PDF exclude: still a whole document  -> 1902
+PASS  PDF below summary: items, no schedule
+PASS  PDF after schedule: both tables present
+PASS  PDF after schedule: schedule comes first  -> 647,1045
+PASS  PDF kitchen: schedule kept, no construction items table
+PASS  the shipped builder ran to completion
