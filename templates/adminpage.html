@@ -26487,31 +26487,19 @@ async function sendKitchenQuotation() {
         }
         
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
-        const dataUri = await generateKitchenPDF('datauri');
-        const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
-        
-        if (!pdfBase64) {
-            throw new Error('Failed to generate PDF');
+        // Send the SAVED quotation through the same builder Save & Download uses,
+        // so the customer receives exactly that document. This path used to render
+        // its own kitchen PDF and recompute the total from the items, so the shop
+        // and the client could be looking at two different quotations.
+        const savedRes = await fetch('/api/get-quotations?id=' + encodeURIComponent(qIdToSend));
+        const savedJson = await savedRes.json();
+        const savedQuotation = ((savedJson && savedJson.data) || []).find(q => q.id === qIdToSend);
+        if (!savedQuotation) {
+            throw new Error('Could not reload the saved quotation.');
         }
-        
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
-        const sendResponse = await fetch('/api/send-quotation-whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                clientName: data.clientName,
-                whatsappNumber: clientWhatsapp,
-                quotationId: qIdToSend,
-                pdfBase64: pdfBase64
-            })
-        });
-        
-        const sendResult = await sendResponse.json();
-        if (!sendResult.success) {
-            throw new Error(sendResult.error || 'Failed to send');
-        }
-        
-        alert(`✅ Quotation sent successfully to ${clientWhatsapp}!`);
+        await sendQuotationPdfToWhatsApp(savedQuotation);
+        return;
         
     } catch (error) {
         console.error('Error:', error);
@@ -38319,127 +38307,80 @@ async function sendQuotationFromPortal(quotationId) {
 }
 window.sendQuotationFromPortal = sendQuotationFromPortal;
 
-async function sendKitchenQuotationFromPortal(quotation) {
-    // Convert to kitchen format
-    const kitchenData = {
+// One shape for the PDF, whatever the category. Save & Download and Send must
+// hand the client the SAME document, and the only way to guarantee that is to
+// build it with the same function from the same data -- so both paths fill
+// window.quotationData here, then call generateQuotationPDF.
+function buildQuotationPdfData(quotation) {
+    return {
         clientName: quotation.clientName,
         clientWhatsapp: quotation.clientWhatsapp || '',
         quotationDate: quotation.quotationDate,
         category: quotation.category,
-        vat: quotationVatFromRecord(quotation),
-        totalCost: quotation.totalCost,
-        items: (quotation.items || []).map(item => ({
-            name: item.name,
-            quantity: item.quantity || 1,
-            amount: item.amount || item.unitRate || 0,
-            days: item.days || 1,
-            totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || 0))
-        })),
-        notes: quotation.notes || '',
-        schedules: (quotation.schedules || []).map(schedule => ({
-            workScope: schedule.workScope,
-            startDate: schedule.startDate,
-            endDate: schedule.endDate,
-            days: schedule.days || 1
-        }))
-    };
-    
-    // Recalculate totals
-    let recalculatedTotal = 0;
-    kitchenData.items.forEach(item => {
-        recalculatedTotal += (item.quantity || 1) * (item.amount || 0);
-    });
-    kitchenData.totalCost = recalculatedTotal;
-    
-    window.kitchenQuotationData = kitchenData;
-    
-    // Generate PDF
-    if (typeof window.generateKitchenPDF !== 'function') {
-        throw new Error('Kitchen PDF generator not available');
-    }
-    
-    const dataUri = await window.generateKitchenPDF('datauri');
-    const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
-    
-    if (!pdfBase64) {
-        throw new Error('Failed to generate kitchen quotation PDF for sending.');
-    }
-    
-    // Send via WhatsApp
-    const sendResponse = await fetch('/api/send-quotation-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            clientName: quotation.clientName || 'Client',
-            whatsappNumber: quotation.clientWhatsapp,
-            quotationId: quotation.id,
-            pdfBase64: pdfBase64,
-            category: 'kitchen'
-        })
-    });
-    
-    const sendResult = await sendResponse.json();
-    if (!sendResponse.ok || !sendResult.success) {
-        throw new Error((sendResult.error || 'Failed to send') + (sendResult.hint ? '\n\n' + sendResult.hint : ''));
-    }
-    
-    if (sendResult.used_template) {
-        alert('Customer is outside the 24-hour window.\nA WhatsApp template with "Download Quotation" button was sent to: ' + sendResult.whatsapp_number);
-    } else {
-        alert('Kitchen quotation PDF sent successfully to: ' + sendResult.whatsapp_number);
-    }
-}
-window.sendKitchenQuotationFromPortal = sendKitchenQuotationFromPortal;
-
-async function sendConstructionQuotationFromPortal(quotation) {
-    // Your existing construction send logic
-    const data = {
-        clientName: quotation.clientName,
-        clientWhatsapp: quotation.clientWhatsapp || '',
-        quotationDate: quotation.quotationDate,
-        category: quotation.category,
+        customCategory: quotation.customCategory || '',
+        categoryName: quotation.customCategory || '',
         vat: quotationVatFromRecord(quotation),
         size: quotation.projectSize,
+        projectSize: quotation.projectSize,
+        // The figure the client is quoted is the one ON THE RECORD. It was
+        // recalculated from the items on the kitchen send path, so a stored
+        // markup or VAT could quietly change what the customer was sent.
         totalCost: quotation.totalCost,
         markup: quotation.markup,
-        baseCost: quotation.totalCost / (1 + (quotation.markup / 100)),
-        markupAmount: quotation.totalCost - (quotation.totalCost / (1 + (quotation.markup / 100))),
-        items: (quotation.items || []).map(item => ({
-            item: item.name,
-            name: item.name,
-            sqm: item.quantity,
-            inhouseRate: item.unitRate,
-            clientPrice: item.totalPrice,
-            total: item.totalPrice
-        })),
-        notes: quotation.notes || ''
+        baseCost: quotation.totalCost / (1 + ((quotation.markup || 0) / 100)),
+        markupAmount: quotation.totalCost - (quotation.totalCost / (1 + ((quotation.markup || 0) / 100))),
+        notes: quotation.notes || '',
+        items: (quotation.items || []).map(function (item) {
+            // Construction rows carry sqm/unitRate; kitchen and TV/Other rows
+            // carry amount. Both names are filled so either table reads them.
+            return {
+                item: item.name,
+                name: item.name,
+                sqm: item.quantity,
+                quantity: item.quantity,
+                amount: item.amount,
+                unitRate: (item.unitRate !== undefined ? item.unitRate : item.amount),
+                inhouseRate: (item.unitRate !== undefined ? item.unitRate : item.amount),
+                days: item.days,
+                clientPrice: item.totalPrice,
+                total: item.totalPrice,
+                totalPrice: item.totalPrice
+            };
+        })
     };
-    
-    const ganttData = (quotation.schedules || []).map(s => ({
-        item: s.workScope,
-        startDate: s.startDate,
-        endDate: s.endDate,
-        days: s.days,
-        price: 0
-    }));
+}
 
-    window.quotationData = data;
-    window.ganttChartData = ganttData;
+function buildQuotationGanttData(quotation) {
+    return (quotation.schedules || []).map(function (s) {
+        return {
+            item: s.workScope,
+            workScope: s.workScope,
+            startDate: s.startDate,
+            endDate: s.endDate,
+            days: s.days,
+            price: 0
+        };
+    });
+}
 
+async function sendQuotationPdfToWhatsApp(quotation) {
     if (typeof window.generateQuotationPDF !== 'function') {
         throw new Error('PDF generator not available. Please refresh and try again.');
     }
 
-    // Ask user about construction table placement
+    window.quotationData = buildQuotationPdfData(quotation);
+    window.ganttChartData = buildQuotationGanttData(quotation);
+
+    // Same question Save & Download asks, and the same answer reaches the same
+    // builder -- so the client is never sent a layout the shop never saw.
     const tablePlacement = await promptQuotationTablePlacementIfNeeded(quotation.category);
     if (tablePlacement === null) {
         return; // User cancelled
     }
     window.quotationPdfTablePlacement = tablePlacement;
-    
+
     const dataUri = await window.generateQuotationPDF('datauri', tablePlacement);
     const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
-    
     if (!pdfBase64) {
         throw new Error('Failed to generate quotation PDF for sending.');
     }
@@ -38451,10 +38392,11 @@ async function sendConstructionQuotationFromPortal(quotation) {
             clientName: quotation.clientName || 'Client',
             whatsappNumber: quotation.clientWhatsapp,
             quotationId: quotation.id,
-            pdfBase64: pdfBase64
+            pdfBase64: pdfBase64,
+            category: quotation.category || ''
         })
     });
-    
+
     const sendResult = await sendResponse.json();
     if (!sendResponse.ok || !sendResult.success) {
         throw new Error((sendResult.error || 'Failed to send') + (sendResult.hint ? '\n\n' + sendResult.hint : ''));
@@ -38466,6 +38408,20 @@ async function sendConstructionQuotationFromPortal(quotation) {
         alert('Quotation PDF sent successfully to: ' + sendResult.whatsapp_number);
     }
 }
+window.sendQuotationPdfToWhatsApp = sendQuotationPdfToWhatsApp;
+
+async function sendKitchenQuotationFromPortal(quotation) {
+    // Was: a separate kitchen PDF builder, with the total recalculated from the
+    // items. That produced a different document from the one Save & Download
+    // gives, so the customer and the shop were looking at two quotations.
+    return sendQuotationPdfToWhatsApp(quotation);
+}
+window.sendKitchenQuotationFromPortal = sendKitchenQuotationFromPortal;
+
+async function sendConstructionQuotationFromPortal(quotation) {
+    return sendQuotationPdfToWhatsApp(quotation);
+}
+window.sendConstructionQuotationFromPortal = sendConstructionQuotationFromPortal;
 </script>
 
 <script>

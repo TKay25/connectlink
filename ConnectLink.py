@@ -46576,10 +46576,29 @@ def create_quotation_share_token(quotation_id, pdf_bytes=None, pdf_filename=''):
     Token format: quotation_{id}_{random_hex} so webhook can extract quotation_id directly.
 
     If pdf_bytes is provided (e.g. from frontend-generated PDF), it's stored directly.
-    Otherwise tries to generate server-side — if that fails, token is still created
-    and the share page will show a friendly error."""
+    Otherwise the quotation's most recent stored PDF is reused -- that is the document
+    Save & Download produced, and the client must never be handed a different layout
+    from a later link. Only when no PDF has ever been stored is one rendered
+    server-side (and, failing that, the token is still created so the share page can
+    show a friendly message)."""
     token = f"quotation_{quotation_id}_{uuid.uuid4().hex[:12]}"
     expiry = datetime.now() + timedelta(hours=QUOTATION_SHARE_TOKEN_HOURS)
+
+    # Prefer the exact document the shop already downloaded over a re-render.
+    if pdf_bytes is None:
+        try:
+            with get_db() as (cursor, _):
+                cursor.execute("""
+                    SELECT pdf_data, pdf_filename FROM quotation_share_links
+                    WHERE quotation_id = %s AND pdf_data IS NOT NULL
+                    ORDER BY created_at DESC LIMIT 1
+                """, (quotation_id,))
+                stored = cursor.fetchone()
+            if stored:
+                pdf_bytes = bytes(stored[0])
+                pdf_filename = stored[1] or pdf_filename
+        except Exception as stored_err:
+            print(f"⚠️ Could not look up a stored quotation PDF: {stored_err}")
 
     # If no PDF provided, try server-side generation as fallback
     if pdf_bytes is None:
@@ -46599,6 +46618,38 @@ def create_quotation_share_token(quotation_id, pdf_bytes=None, pdf_filename=''):
         connection.commit()
 
     return token
+
+
+def remember_quotation_pdf(quotation_id, pdf_bytes, pdf_filename=''):
+    """Keep the frontend-generated PDF as the quotation's current document.
+
+    The PDF the till produces IS the quotation: Save & Download and Send both build
+    it with the same function, and every later share link or download has to resolve
+    to those same bytes rather than being re-rendered into a different layout. The
+    newest existing token is updated in place (no row per send), and one is created
+    when the quotation has none.
+    """
+    if not pdf_bytes:
+        return
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE quotation_share_links
+                SET pdf_data = %s, pdf_filename = %s
+                WHERE id = (SELECT id FROM quotation_share_links
+                            WHERE quotation_id = %s ORDER BY created_at DESC LIMIT 1)
+            """, (pdf_bytes, pdf_filename or '', quotation_id))
+            updated = cursor.rowcount
+            connection.commit()
+        if updated:
+            return
+    except Exception as e:
+        print(f"⚠️ Could not update the stored quotation PDF: {e}")
+        return
+    try:
+        create_quotation_share_token(quotation_id, pdf_bytes=pdf_bytes, pdf_filename=pdf_filename)
+    except Exception as e:
+        print(f"⚠️ Could not store the quotation PDF for later sends: {e}")
 
 
 def mark_quotation_download_clicked(share_token, whatsapp_number=''):
@@ -48322,6 +48373,11 @@ def send_quotation_whatsapp():
 
         whatsapp_response = send_pdf_document_whatsapp(whatsapp_number, pdf_bytes, filename, caption)
         outbound_message_id = ((whatsapp_response or {}).get('messages') or [{}])[0].get('id', '')
+
+        # Keep the PDF that was just sent as this quotation's document, so any
+        # later share link or download hands the client THESE bytes and not a
+        # server-side re-render in a different layout.
+        remember_quotation_pdf(safe_qid, pdf_bytes, filename)
 
         if quotation_id and outbound_message_id:
             try:
