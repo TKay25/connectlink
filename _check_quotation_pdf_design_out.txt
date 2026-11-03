@@ -12,18 +12,4 @@ PASS  the portal download no longer draws a 100x2px navy rule
 PASS  the portal download renders through the shared renderer
 PASS  no builder still prints the old "Project Quotation" 16px header
 PASS  the logo the PDFs embed is reachable  -> 1117
-PASS  the real html2pdf build is available for the render
-PASS  both quotations render quickly (no download hang)  -> 0.6s
-PASS  the project quotation renders a PDF  -> {'pages': 2, 'blue_rule': 0, 'navy': 19478, 'logo': 1667, 'last_ink': 0.484, 'stray_bottom': [], 'bytes': 564824}
-PASS  the project quotation has no blue rule under the title  -> 0 px in a row
-PASS  the project quotation uses the contract navy  -> 19478
-PASS  the project quotation shows the ConnectLink logo  -> 1667
-PASS  the project quotation does not end on a near-empty tail page  -> 0.484
-PASS  the project quotation has no stray rule at a page edge
-PASS  the kitchen quotation renders a PDF  -> {'pages': 1, 'blue_rule': 0, 'navy': 20063, 'logo': 1392, 'last_ink': 1.0, 'stray_bottom': [], 'bytes': 381790}
-PASS  the kitchen quotation has no blue rule under the title  -> 0 px in a row
-PASS  the kitchen quotation uses the contract navy  -> 20063
-PASS  the kitchen quotation shows the ConnectLink logo  -> 1392
-PASS  the kitchen quotation does not end on a near-empty tail page  -> 1.0
-PASS  the kitchen quotation has no stray rule at a page edge
-PASS  no script error while building the documents
+FAIL  the real html2pdf build is available for the render  -> offline: static checks only

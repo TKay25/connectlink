@@ -9,9 +9,10 @@ schedule" changed nothing but the heading.
 
 The rule now: for a construction quotation the schedule prints ONLY for
 "after the work schedule" (and the items are placed under it); the other two
-answers print neither the items nor the schedule. Quotations that are never
-asked -- kitchen, TV units, Other -- keep their schedule, because no option was
-ever put to the operator.
+answers print neither the items nor the schedule. Kitchen quotations print no
+schedule at all -- they are priced per item and every line already carries its
+own Days. Quotations that are never asked -- TV units, Other -- keep their
+schedule, because no option was ever put to the operator.
 
 This runs the REAL shipped functions (extracted from the template by brace
 matching) under node with nothing but the PDF kit stubbed, so what is measured is
@@ -49,9 +50,9 @@ src = io.open(TEMPLATE, encoding='utf-8').read()
 check('the placement rule is one shared function',
       'function quotationShowsWorkSchedule(' in src)
 check('the PDF builder consults it',
-      'quotationShowsWorkSchedule(isConstructionCat, normalizedPlacement)' in src)
+      'quotationShowsWorkSchedule(category, normalizedPlacement)' in src)
 check('the early fallback builder consults it too',
-      "quotationShowsWorkSchedule(/construction/.test(String(category || '').toLowerCase()), tablePlacement)" in src)
+      'quotationShowsWorkSchedule(category, tablePlacement)' in src)
 check('the items table is built, not pushed in a fixed order',
       'var constructionItemsBlockHtml' in src and 'var workScheduleBlockHtml' in src)
 check('"after schedule" places the items under the schedule',
@@ -148,11 +149,13 @@ async function build(data, placement) {
 
 (async () => {
   const rule = sandbox.quotationShowsWorkSchedule;
-  check('construction + exclude: no schedule', rule(true, 'exclude') === false);
-  check('construction + below summary: no schedule', rule(true, 'default') === false);
-  check('construction + after schedule: schedule', rule(true, 'after_schedule') === true);
-  check('a quotation never asked keeps its schedule', rule(false, 'default') === true);
-  check('an unknown answer falls back to below-summary', rule(true, 'banana') === false);
+  check('construction + exclude: no schedule', rule('construction_single', 'exclude') === false);
+  check('construction + below summary: no schedule', rule('construction_single', 'default') === false);
+  check('construction + after schedule: schedule', rule('construction_single', 'after_schedule') === true);
+  check('kitchen prints no schedule', rule('kitchen', 'default') === false);
+  check('saved kitchen prints no schedule', rule('kitchen_cabinets', 'after_schedule') === false);
+  check('a quotation never asked keeps its schedule', rule('tv_units', 'default') === true);
+  check('an unknown answer falls back to below-summary', rule('construction_single', 'banana') === false);
 
   let html = await build(CONSTRUCTION, 'exclude');
   check('PDF exclude: no Work Schedule', !/Work Schedule/.test(html));
@@ -171,8 +174,12 @@ async function build(data, placement) {
         [html.indexOf('Work Schedule'), html.indexOf('Construction Items')]);
 
   html = await build(KITCHEN, 'default');
-  check('PDF kitchen: schedule kept, no construction items table',
-        /Work Schedule/.test(html) && !/Construction Items/.test(html));
+  check('PDF kitchen: no Work Schedule, no construction items table',
+        !/Work Schedule/.test(html) && !/Construction Items/.test(html));
+
+  html = await build(KITCHEN, 'after_schedule');
+  check('PDF kitchen + after schedule: still no Work Schedule',
+        !/Work Schedule/.test(html));
 
   console.log(out.join('\n'));
   process.exit(out.some(l => l.startsWith('FAIL')) ? 1 : 0);

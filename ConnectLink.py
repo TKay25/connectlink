@@ -46876,6 +46876,12 @@ def _serve_quotation_html_page(q):
     # has no Days column.
     days_header_html = '' if is_construction else '<th>Days</th>'
 
+    # Kitchen quotations are priced per item and every line already carries its
+    # own Days, so the document ends at the item table -- no work schedule.
+    work_schedule_html = '' if is_kitchen else f"""
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>"""
+
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -46978,8 +46984,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
     </div>
   </div>
 
-  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
-  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>
+  {work_schedule_html}
 </div>
 
 <script>
@@ -47306,7 +47311,29 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
     
     # Pre-escape for use in f-string (avoid html module name conflict in Python 3.14+)
     escaped_name = client_name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
-    
+
+    # Kitchen quotations are priced per item and every line already carries its
+    # own Days, so the document ends at the item table -- no work schedule.
+    work_schedule_html = '' if is_kitchen else f"""
+            <!-- WORK SCHEDULE -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:20px 0 12px 0; font-weight:800; letter-spacing:0.5px;'>WORK SCHEDULE</h4>
+                <table style='width:100%; border-collapse:collapse; font-size:10px; margin-bottom:10px;'>
+                    <thead>
+                        <tr>
+                            <th style='width:8%;'>#</th>
+                            <th style='width:52%; text-align:left;'>Work Scope</th>
+                            <th style='width:20%; text-align:center;'>Start Date</th>
+                            <th style='width:20%; text-align:center;'>End Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {schedule_rows}
+                    </tbody>
+                </table>
+            </div>
+            """
+
     return f"""
     <!DOCTYPE html>
     <html>
@@ -47410,23 +47437,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                 {vat_rows}
             </div>
             
-            <!-- WORK SCHEDULE -->
-            <div style='page-break-inside:avoid; break-inside:avoid;'>
-                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:20px 0 12px 0; font-weight:800; letter-spacing:0.5px;'>WORK SCHEDULE</h4>
-                <table style='width:100%; border-collapse:collapse; font-size:10px; margin-bottom:10px;'>
-                    <thead>
-                        <tr>
-                            <th style='width:8%;'>#</th>
-                            <th style='width:52%; text-align:left;'>Work Scope</th>
-                            <th style='width:20%; text-align:center;'>Start Date</th>
-                            <th style='width:20%; text-align:center;'>End Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {schedule_rows}
-                    </tbody>
-                </table>
-            </div>
+            {work_schedule_html}
         </div>
     </body>
     </html>
@@ -47597,6 +47608,12 @@ def generate_quotation_pdf_playwright(quotation_id):
     <tr><td style="border:none;text-align:right;padding:4px 10px;font-weight:800;">Total payable (incl. VAT)</td><td style="border:none;text-align:right;padding:4px 10px;font-weight:800;">USD {total_cost:,.2f}</td></tr>
   </table>"""
 
+    # Kitchen quotations are priced per item and every line already carries its
+    # own Days, so the document ends at the item table -- no work schedule.
+    work_schedule_html = '' if is_kitchen else f"""
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>"""
+
     html_content = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -47677,8 +47694,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
     </div>
   </div>
 
-  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
-  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>
+  {work_schedule_html}
 </div>
 </body>
 </html>"""
