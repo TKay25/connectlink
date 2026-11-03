@@ -5254,7 +5254,12 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         }
 
         // ---- work schedule ----
-        if (showItemsTable && schedules.length > 0) {
+        // Same rule as the main builder: the schedule prints only when the items
+        // are placed after it (see quotationShowsWorkSchedule).
+        var showWorkScheduleEarly = (typeof quotationShowsWorkSchedule === 'function')
+            ? quotationShowsWorkSchedule(/construction/.test(String(category || '').toLowerCase()), tablePlacement)
+            : showItemsTable;
+        if (showWorkScheduleEarly && schedules.length > 0) {
             var schRows = schedules.map(function (s, idx) {
                 return [
                     { h: idx + 1, a: 'center' },
@@ -21324,6 +21329,28 @@ function getQuotationTableOptionFromModal() {
     return selected ? selected.value : 'default';
 }
 
+/**
+ * Does this PDF print the Work Schedule table?
+ *
+ * The schedule is the same rows as the Construction Items table (item, start,
+ * end, days), so the choice that places that table decides this one:
+ *
+ *   exclude         -> no items table, and no schedule;
+ *   default/include -> items below the summary, and no schedule;
+ *   after_schedule  -> the schedule, then the items under it.
+ *
+ * Only "Include after the work schedule" names the schedule, so only it prints
+ * one. Quotations that are never asked the question -- kitchen, TV units, Other
+ * -- keep their schedule, because no option was ever put to the operator.
+ */
+function quotationShowsWorkSchedule(isConstruction, placement) {
+    if (!isConstruction) return true;
+    var p = ['exclude', 'default', 'include', 'after_schedule'].includes(placement)
+        ? placement : 'default';
+    return p === 'after_schedule';
+}
+window.quotationShowsWorkSchedule = quotationShowsWorkSchedule;
+
 function openQuotationTableOptionsModal() {
     // Reset button state
     const btn = document.getElementById('quotationOptionContinueBtn');
@@ -35897,7 +35924,13 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     }
 
     // ---- work schedule ----
-    if (schedules.length > 0) {
+    // Printed only for the option that names it: see quotationShowsWorkSchedule.
+    // It used to print whatever the operator chose, so a PDF they had asked to
+    // keep bare still carried a full task list.
+    var showWorkSchedule = (typeof quotationShowsWorkSchedule === 'function')
+        ? quotationShowsWorkSchedule(isConstructionCat, normalizedPlacement)
+        : true;
+    if (showWorkSchedule && schedules.length > 0) {
         var schRows = schedules.map(function (s, idx) {
             return [
                 { h: idx + 1, a: 'center' },
