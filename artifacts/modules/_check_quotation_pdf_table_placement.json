@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckQuotationPdfTablePlacement",
+  "file": "_check_quotation_pdf_table_placement.py",
+  "purpose": "The construction-items choice must reach BOTH tables in the PDF.",
+  "entry_function": "check(name, ok, detail = '')",
+  "entry_flows": [
+    "_check_quotation_pdf_table_placement → RESULTS.append, fh.write, io.open, shutil.which, r.startswith"
+  ],
+  "public_api": [
+    "check(name, ok, detail = '')"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), TEMPLATE = os.path.join(ROOT, 'templates', 'adminpage.html'), OUT = os.path.join(ROOT, '_check_quotation_pdf_table_placement_out.txt'), RESULTS = [], HARNESS = \"\\nconst fs = require('fs');\\nconst vm = require('vm');\\nconst src = fs.readFileSync(process.argv[2], 'utf8');\\n\\nfunction extract(name) {\\n  const start = src.indexOf('function ' + name + '(');\\n  if (start === -1) throw new Error('not found: ' + name);\\n  let depth = 0;\\n  for (let i = src.indexOf('{', start); i < src.length; i++) {\\n    if (src[i] === '{') depth++;\\n    else if (src[i] === '}') { depth--; if (depth === 0) return src.slice(start, i + 1); }\\n  }\\n  throw new Error('unbalanced: ' + name);\\n}\\n\\nconst out = [];\\nconst check = (n, ok, d) => out.push((ok ? 'PASS  ' : 'FAIL  ') + n + (d !== undefined ? '  -> ' + d : ''));\\n\\nlet captured = '';\\nconst base = {\\n  money: v => 'USD ' + Number(v || 0).toFixed(2),\\n  doc: body => '<!doctype html><html><body>' + body + '</body></html>',\\n  table: (cols, rows) => '<table><thead><tr>' +\\n    cols.map(c => '<th>' + c.label + '</th>').join('') + '</tr></thead><tbody>' +\\n    rows.map(r => '<tr>' + r.map(c => '<td>' + (c.h === undefined ? '' : c.h) + '</td>').join('') + '</tr>').join('') +\\n    '</tbody></table>',\\n  render: async h => { captured = h; return 'rendered'; },\\n  palette: {},\\n};\\nconst CLQ = new Proxy(base, {\\n  get(t, p) {\\n    if (p in t) return t[p];\\n    if (typeof p === 'symbol') return undefined;\\n    return (...a) => '<' + String(p) + '>' + a.map(x => String(x == null ? '' : x)).join('') + '</' + String(p) + '>';\\n  },\\n});\\n\\n// Minimal page stubs: these functions only touch the DOM to find a loader.\\nconst win = { CLQPdf: CLQ, alert: () => {}, quotationData: null, ganttChartData: [] };\\nconst doc = {\\n  getElementById: () => null,\\n  querySelector: () => null,\\n  body: { appendChild: () => {} },\\n  createElement: () => ({ style: {}, appendChild: () => {} }),\\n};\\n\\nconst sandbox = {\\n  window: win, document: doc, console: { log: () => {}, error: () => {}, warn: () => {} },\\n  escapeHtml: s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),\\n  computeQuotationVat: net => ({ enabled: false, rate: 0, mode: 'exclusive', net, vat: 0, total: net }),\\n  quotationVatFromRecord: () => ({ enabled: false }),\\n  getQuotationVatSettings: () => ({ enabled: false }),\\n  formatCategoryName: c => c,\\n  formatCurrency: v => 'USD ' + Number(v || 0).toFixed(2),\\n  usdMoney: v => 'USD ' + Number(v || 0).toFixed(2),\\n  showLoader: () => {}, hideLoader: () => {}, closeModal: () => {},\\n  quotationRatesCache: [],\\n};\\nconst ctx = vm.createContext(sandbox);\\nvm.runInContext(extract('quotationShowsWorkSchedule'), ctx);\\nvm.runInContext(extract('generateQuotationPDF'), ctx);\\n\\nconst CONSTRUCTION = {\\n  clientName: 'Tendai Chirwa', category: 'construction_single', size: 80, totalCost: 45000,\\n  quotationDate: '2026-10-20', notes: '', vat: { enabled: false },\\n  items: [{ name: 'Foundation', quantity: 30, unitRate: 120, totalPrice: 3600, days: 30 }],\\n};\\nconst KITCHEN = {\\n  clientName: 'Nyasha Moyo', category: 'kitchen', size: 12, totalCost: 1500,\\n  quotationDate: '2026-11-01', notes: '', vat: { enabled: false },\\n  items: [{ name: 'Base cabinets', quantity: 6, amount: 100, days: 10 }],\\n};\\nconst SCHEDULES = [{ workScope: 'Foundation', startDate: '2026-10-20', endDate: '2026-11-18', days: 30 }];\\n\\nasync function build(data, placement) {\\n  captured = '';\\n  win.quotationData = data;\\n  win.ganttChartData = SCHEDULES;\\n  await sandbox.generateQuotationPDF('datauri', placement);\\n  return captured;\\n}\\n\\n(async () => {\\n  const rule = sandbox.quotationShowsWorkSchedule;\\n  check('construction + exclude: no schedule', rule(true, 'exclude') === false);\\n  check('construction + below summary: no schedule', rule(true, 'default') === false);\\n  check('construction + after schedule: schedule', rule(true, 'after_schedule') === true);\\n  check('a quotation never asked keeps its schedule', rule(false, 'default') === true);\\n  check('an unknown answer falls back to below-summary', rule(true, 'banana') === false);\\n\\n  let html = await build(CONSTRUCTION, 'exclude');\\n  check('PDF exclude: no Work Schedule', !/Work Schedule/.test(html));\\n  check('PDF exclude: no Construction Items', !/Construction Items/.test(html));\\n  check('PDF exclude: still a whole document', /Tendai Chirwa/.test(html) && html.length > 500, html.length);\\n\\n  html = await build(CONSTRUCTION, 'default');\\n  check('PDF below summary: items, no schedule',\\n        /Construction Items/.test(html) && !/Work Schedule/.test(html));\\n\\n  html = await build(CONSTRUCTION, 'after_schedule');\\n  check('PDF after schedule: both tables present',\\n        /Work Schedule/.test(html) && /Construction Items/.test(html));\\n  check('PDF after schedule: schedule comes first',\\n        html.indexOf('Work Schedule') < html.indexOf('Construction Items'),\\n        [html.indexOf('Work Schedule'), html.indexOf('Construction Items')]);\\n\\n  html = await build(KITCHEN, 'default');\\n  check('PDF kitchen: schedule kept, no construction items table',\\n        /Work Schedule/.test(html) && !/Construction Items/.test(html));\\n\\n  console.log(out.join('\\\\n'));\\n  process.exit(out.some(l => l.startsWith('FAIL')) ? 1 : 0);\\n})().catch(e => { console.log('FAIL  the builder threw: ' + e.message); process.exit(1); });\\n\"",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "1513c2ad980034fd",
+  "file_mtime": 1793693460786.1194,
+  "file_size": 9358,
+  "file_birthtime": 1793693460785.125,
+  "generated_at": "2026-11-03T08:11:04.797984Z",
+  "stale": false
+}
