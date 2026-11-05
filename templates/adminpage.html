@@ -6692,6 +6692,35 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
     </div>
 </div>
 
+<div id="quotationWhatsappModal" class="modal-overlay">
+    <div class="modal-container small">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-whatsapp"></i> CLIENT WHATSAPP NUMBER</h3>
+            <button type="button" class="close-modal" onclick="closeQuotationWhatsappPrompt()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <form onsubmit="event.preventDefault(); saveQuotationWhatsappAndSend();">
+            <div class="modal-body-custom">
+                <p>Confirm or edit the WhatsApp number for <strong id="quotationWhatsappClientName">this client</strong>.
+                    We’ll save it to the quotation and send the PDF.</p>
+                <label for="quotationWhatsappInput" class="form-label">WhatsApp number</label>
+                <input type="tel" class="form-control" id="quotationWhatsappInput"
+                       name="whatsappNumber" autocomplete="tel" inputmode="tel"
+                       placeholder="e.g. 0771234567 or 263771234567" required>
+                <div id="quotationWhatsappError" class="text-danger mt-2" role="alert"></div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeQuotationWhatsappPrompt()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveQuotationWhatsappBtn">
+                    <span id="saveQuotationWhatsappText">Save &amp; Send</span>
+                    <span id="saveQuotationWhatsappSpinner" class="spinner-border spinner-border-sm d-none" aria-hidden="true"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="quotationTableOptionsModal" class="modal-overlay">
     <div class="modal-container small">
         <div class="modal-header-custom">
@@ -37762,6 +37791,16 @@ async function viewQuotationDetails(quotationId) {
 
 function displayQuotationDetailsInModal(quotation) {
     const contentDiv = document.getElementById('quotationDetailsContent');
+    const sendButton = document.getElementById('sendQuotationFromModalBtn');
+    const hasWhatsappNumber = !!(quotation.clientWhatsapp && quotation.clientWhatsapp.toString().trim());
+    if (sendButton) {
+        sendButton.title = hasWhatsappNumber
+            ? ''
+            : 'Add a WhatsApp number to continue; you will be prompted when sending.';
+        sendButton.setAttribute('aria-label', hasWhatsappNumber
+            ? 'Send quotation via WhatsApp'
+            : 'Send quotation via WhatsApp after entering the client number');
+    }
     
     const totalCost = quotation.totalCost || 0;
     const markup = quotation.markup || 0;
@@ -38157,12 +38196,11 @@ function escapeHtml(text) {
         html += '</div>';
         
         // Action buttons at the top
-        const wa = quotation.clientWhatsapp ? quotation.clientWhatsapp.toString().trim() : '';
         html += `<div style="margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
             <button class="btn btn-primary btn-sm" onclick="downloadQuotationPDFFromPortal(${quotation.id})">
                 <i class="bi bi-download"></i> Download PDF
             </button>
-            <button class="btn btn-primary btn-sm" onclick="sendQuotationFromPortal(${quotation.id})" ${!wa ? 'disabled title="No WhatsApp number saved"' : ''}>
+            <button class="btn btn-primary btn-sm" onclick="sendQuotationFromPortal(${quotation.id})">
                 <i class="bi bi-whatsapp"></i> Send via WhatsApp
             </button>
             <button class="btn btn-primary btn-sm" onclick="editQuotationFromPortal(${quotation.id})">
@@ -38473,24 +38511,108 @@ async function sendQuotationFromPortal(quotationId) {
         throw new Error('Failed to fetch quotation data.');
     }
     
-    const quotation = result.data.find(q => q.id === quotationId);
+    const quotation = result.data.find(q => String(q.id) === String(quotationId));
     if (!quotation) {
         throw new Error('Quotation not found.');
     }
-    
-    if (!quotation.clientWhatsapp || !quotation.clientWhatsapp.toString().trim()) {
-        throw new Error('No WhatsApp number saved for this quotation. Edit the quotation first to add one.');
-    }
-    
+
+    openQuotationWhatsappPrompt(quotation);
+}
+window.sendQuotationFromPortal = sendQuotationFromPortal;
+
+async function sendQuotationWithWhatsapp(quotation) {
     const isKitchen = quotation.category && quotation.category.toLowerCase().includes('kitchen');
-    
     if (isKitchen) {
         await sendKitchenQuotationFromPortal(quotation);
     } else {
         await sendConstructionQuotationFromPortal(quotation);
     }
 }
-window.sendQuotationFromPortal = sendQuotationFromPortal;
+
+function openQuotationWhatsappPrompt(quotation) {
+    window.pendingQuotationWhatsapp = quotation;
+    const input = document.getElementById('quotationWhatsappInput');
+    const client = document.getElementById('quotationWhatsappClientName');
+    const error = document.getElementById('quotationWhatsappError');
+    const saveButton = document.getElementById('saveQuotationWhatsappBtn');
+    const saveText = document.getElementById('saveQuotationWhatsappText');
+    const saveSpinner = document.getElementById('saveQuotationWhatsappSpinner');
+    if (input) input.value = quotation.clientWhatsapp || '';
+    if (client) client.textContent = quotation.clientName || 'this client';
+    if (error) error.textContent = '';
+    if (saveButton) saveButton.disabled = false;
+    if (saveText) saveText.style.display = 'inline';
+    if (saveSpinner) saveSpinner.classList.add('d-none');
+    if (typeof openModal === 'function') openModal('quotationWhatsappModal');
+    else throw new Error('WhatsApp number entry modal is unavailable.');
+    if (input) setTimeout(function() { input.focus(); input.select(); }, 0);
+}
+
+function closeQuotationWhatsappPrompt() {
+    window.pendingQuotationWhatsapp = null;
+    if (typeof closeModal === 'function') closeModal('quotationWhatsappModal');
+}
+
+async function saveQuotationWhatsappAndSend() {
+    const quotation = window.pendingQuotationWhatsapp;
+    const input = document.getElementById('quotationWhatsappInput');
+    const saveButton = document.getElementById('saveQuotationWhatsappBtn');
+    const saveText = document.getElementById('saveQuotationWhatsappText');
+    const saveSpinner = document.getElementById('saveQuotationWhatsappSpinner');
+    const error = document.getElementById('quotationWhatsappError');
+    const sendButton = document.getElementById('sendQuotationFromModalBtn');
+    const sendText = document.getElementById('sendBtnText');
+    const sendSpinner = document.getElementById('sendBtnSpinner');
+    if (!quotation || !input || !input.value.trim()) {
+        if (error) error.textContent = 'Enter a WhatsApp number to continue.';
+        return;
+    }
+
+    if (saveButton) saveButton.disabled = true;
+    if (saveText) saveText.style.display = 'none';
+    if (saveSpinner) saveSpinner.classList.remove('d-none');
+    if (error) error.textContent = '';
+    try {
+        const response = await fetch('/api/quotations/' + encodeURIComponent(quotation.id) + '/whatsapp', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ whatsappNumber: input.value.trim() })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Could not save the WhatsApp number.');
+        }
+
+        quotation.clientWhatsapp = result.whatsapp_number;
+        if (window.currentViewingQuotation
+            && String(window.currentViewingQuotation.id) === String(quotation.id)) {
+            window.currentViewingQuotation.clientWhatsapp = result.whatsapp_number;
+            displayQuotationDetailsInModal(window.currentViewingQuotation);
+        }
+        window.pendingQuotationWhatsapp = null;
+        if (typeof closeModal === 'function') closeModal('quotationWhatsappModal');
+
+        if (sendButton) sendButton.disabled = true;
+        if (sendText) sendText.style.display = 'none';
+        if (sendSpinner) sendSpinner.classList.remove('d-none');
+        await sendQuotationWithWhatsapp(quotation);
+    } catch (e) {
+        const promptModal = document.getElementById('quotationWhatsappModal');
+        if (error && promptModal && promptModal.classList.contains('active')) {
+            error.textContent = e.message;
+        } else {
+            alert('Could not send quotation via WhatsApp: ' + e.message);
+        }
+    } finally {
+        if (saveButton) saveButton.disabled = false;
+        if (saveText) saveText.style.display = 'inline';
+        if (saveSpinner) saveSpinner.classList.add('d-none');
+        if (sendButton) sendButton.disabled = false;
+        if (sendText) sendText.style.display = 'inline';
+        if (sendSpinner) sendSpinner.classList.add('d-none');
+    }
+}
+window.saveQuotationWhatsappAndSend = saveQuotationWhatsappAndSend;
 
 // One shape for the PDF, whatever the category. Save & Download and Send must
 // hand the client the SAME document, and the only way to guarantee that is to

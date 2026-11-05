@@ -48700,6 +48700,50 @@ def send_quotation_whatsapp():
         }), status_code
 
 
+@app.route('/api/quotations/<int:quotation_id>/whatsapp', methods=['PUT'])
+@login_required
+def update_quotation_whatsapp(quotation_id):
+    """Save a missing client WhatsApp number without rewriting quotation contents."""
+    connection = None
+    try:
+        data = request.get_json(silent=True) or {}
+        whatsapp_number = normalize_whatsapp_number(data.get('whatsappNumber', ''))
+        if not re.fullmatch(r'[0-9]{8,15}', whatsapp_number):
+            return jsonify({
+                'success': False,
+                'error': 'Enter a valid WhatsApp number with its country code, or a local number starting with 0.'
+            }), 400
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE quotations
+                SET client_whatsapp = %s
+                WHERE id = %s
+                RETURNING id
+            """, (whatsapp_number, quotation_id))
+            if cursor.fetchone() is None:
+                return jsonify({'success': False, 'error': 'Quotation not found'}), 404
+            connection.commit()
+
+        log_activity(
+            'quotation_edited',
+            f'WhatsApp number added to quotation #{quotation_id}',
+            'quotation',
+            quotation_id,
+            {'updated_by': session.get('user_name', 'Unknown')}
+        )
+        return jsonify({
+            'success': True,
+            'quotation_id': quotation_id,
+            'whatsapp_number': whatsapp_number
+        })
+    except Exception as e:
+        logging.error(f'Error saving WhatsApp number for quotation {quotation_id}: {e}')
+        if connection is not None:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/update-quotation/<int:quotation_id>', methods=['PUT'])
 def update_quotation(quotation_id):
     """Update an existing quotation with its items and schedules."""
