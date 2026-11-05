@@ -67,6 +67,13 @@ check('the shared design kit exists', 'window.CLQPdf = (function () {' in SRC)
 kit = slice_between(SRC, 'window.CLQPdf = (function () {', '\n})();') + '\n})();'
 check('the kit carries the contract palette',
       '#1E2A56' in kit and '#2A3A78' in kit and '#d1d9f0' in kit)
+isolated_render = slice_between(SRC, 'function renderIsolated(htmlContent, options) {',
+                                '\n    function renderInline')
+check('the isolated renderer mounts quotation markup before waiting for fonts',
+      isolated_render.index('appendChild(element)')
+      < isolated_render.index('element.getBoundingClientRect()')
+      < isolated_render.index('win.document.fonts.ready')
+      < isolated_render.index('.from(element)'))
 title_rule = kit.split('.clq-title')[1].split('}')[0]
 check('the kit neutralises the page rule under the title',
       'border:0' in title_rule.replace(' ', ''),

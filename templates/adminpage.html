@@ -4871,10 +4871,8 @@ window.CLQPdf = (function () {
         }).catch(function () {}).then(function () { win.clearTimeout(timer); });
     }
 
-    // The logo and the webfonts must land BEFORE the generator measures anything:
-    // html2pdf sizes the capture from a measurement taken ahead of the render, so
-    // an image or font arriving later pushed the last block (the footer) below the
-    // captured height and it silently vanished from the PDF.
+    // Load the logo and fetch the webfont stylesheet before rendering. The actual
+    // font faces are awaited after the quotation is mounted in renderIsolated().
     function prepareFrame(win) {
         var probe = new win.Image();
         return Promise.all([
@@ -4882,9 +4880,7 @@ window.CLQPdf = (function () {
             new Promise(function (resolve) {
                 probe.onload = probe.onerror = resolve;
                 probe.src = '/static/images/web-logo.png';
-            }),
-            (win.document.fonts && win.document.fonts.ready)
-                ? win.document.fonts.ready.catch(function () {}) : Promise.resolve()
+            })
         ]);
     }
 
@@ -4923,10 +4919,30 @@ window.CLQPdf = (function () {
     function renderIsolated(htmlContent, options) {
         return getRenderFrame().then(function (context) {
             var win = context.win;
-            // Rebuilt inside the frame: html2pdf rejects arrays from another realm,
-            // so `margin: [6,6,6,6]` has to be an Array of the frame's own.
-            var local = win.JSON.parse(win.JSON.stringify(options));
-            return win.html2pdf().set(local).from(htmlContent).outputPdf('datauristring');
+            var holder = win.document.createElement('div');
+            holder.innerHTML = htmlContent;
+            var element = holder.firstElementChild;
+            if (!element) { throw new Error('Quotation document is empty'); }
+            win.document.body.appendChild(element);
+            element.getBoundingClientRect();
+
+            // Wait after mounting so the quotation's actual font faces are requested
+            // before html2pdf measures the document height. Waiting on an empty frame
+            // lets late font loading shorten the measured canvas and clip the last box.
+            var fontsReady = (win.document.fonts && win.document.fonts.ready)
+                ? win.document.fonts.ready.catch(function () {}) : Promise.resolve();
+            return fontsReady.then(function () {
+                // Rebuilt inside the frame: html2pdf rejects arrays from another realm,
+                // so `margin: [6,6,6,6]` has to be an Array of the frame's own.
+                var local = win.JSON.parse(win.JSON.stringify(options));
+                return win.html2pdf().set(local).from(element).outputPdf('datauristring');
+            }).then(function (uri) {
+                element.remove();
+                return uri;
+            }, function (error) {
+                element.remove();
+                throw error;
+            });
         });
     }
 
