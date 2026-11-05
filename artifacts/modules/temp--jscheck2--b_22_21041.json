@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "B2221041",
+  "file": "temp/jscheck2/b_22_21041.js",
+  "purpose": "Does this PDF print the Work Schedule table?",
+  "entry_function": "class from",
+  "entry_flows": [],
+  "public_api": [
+    "class from",
+    "class to",
+    "setTimeout",
+    "if",
+    "openModal"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Patterns: async/await",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "430d6ba6ceba5e1e",
+  "file_mtime": 1793894648336.5671,
+  "file_size": 119441,
+  "file_birthtime": 1793894648330.4438,
+  "generated_at": "2026-11-05T16:04:11.208605Z",
+  "stale": false
+}

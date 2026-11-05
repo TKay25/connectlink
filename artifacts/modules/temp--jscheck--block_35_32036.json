@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Block3532036",
+  "file": "temp/jscheck/block_35_32036.js",
+  "purpose": "Block 35 32036",
+  "entry_function": "if",
+  "entry_flows": [],
+  "public_api": [
+    "if",
+    "for",
+    "generateManualInstallments"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "99f4a5627d2c0009",
+  "file_mtime": 1793893777495.6814,
+  "file_size": 2101,
+  "file_birthtime": 1793893777493.848,
+  "generated_at": "2026-11-05T15:49:45.103762Z",
+  "stale": false
+}

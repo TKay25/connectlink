@@ -4190,7 +4190,7 @@ window.renderConstructionItemsList = window.renderConstructionItemsList || funct
         var disabled = isExcluded ? 'disabled' : '';
         var rowBg = idx % 2 === 0 ? '#fff' : '#f8f9fa';
         
-        html += '<div class="border-bottom p-3 construction-item-row" style="background-color:'+rowBg+';'+style+'">';
+        html += '<div class="border-bottom p-3 construction-item-row" data-item-id="'+(rate.id != null ? rate.id : '')+'" data-item-name="'+String(rate.item||'').replace(/"/g,'&quot;')+'" data-client-price="'+clientPrice+'" style="background-color:'+rowBg+';'+style+'">';
         html += '<div style="display:flex;align-items:flex-start;gap:10px;">';
         html += '<input type="checkbox" class="construction-item-checkbox me-2" '+disabled+' style="margin-top:3px;flex-shrink:0;">';
         html += '<div style="flex:1;"><div class="fw-bold" style="font-size:0.95rem;margin-bottom:4px;">'+(rate.item||'')+(isExcluded?' <span class="badge bg-secondary ms-2" style="font-size:0.7rem;">Not for Single Storey</span>':'')+'</div>';
@@ -4229,7 +4229,7 @@ window.updateSelectedItemsList = window.updateSelectedItemsList || function() {
                 var match = smallText.textContent.match(/×\s*(\d+)/);
                 if(match) sqm = parseFloat(match[1]) || 0;
             }
-            checkedItems.push({name:name, sqm:sqm, price:price, element:row});
+            checkedItems.push({id: row.getAttribute('data-item-id'), name:name, sqm:sqm, price:price, element:row});
         }
     });
     if(checkedItems.length === 0){
@@ -4240,7 +4240,7 @@ window.updateSelectedItemsList = window.updateSelectedItemsList || function() {
     if(emptyMsg) emptyMsg.style.display = 'none';
     var html = '';
     checkedItems.forEach(function(item, idx){
-        html += '<div class="selected-item-drag" draggable="true" data-index="'+idx+'" style="display:flex;align-items:center;padding:6px 8px;margin-bottom:4px;background:white;border:1px solid #2196F3;border-radius:6px;cursor:grab;font-size:0.75rem;">';
+        html += '<div class="selected-item-drag" draggable="true" data-index="'+idx+'" data-item-id="'+(item.id != null ? item.id : '')+'" style="display:flex;align-items:center;padding:6px 8px;margin-bottom:4px;background:white;border:1px solid #2196F3;border-radius:6px;cursor:grab;font-size:0.75rem;">';
         html += '<span style="cursor:grab;margin-right:8px;color:#999;"><i class="bi bi-grip-vertical"></i></span>';
         html += '<div style="flex:1;"><strong>'+item.name+'</strong><br><small style="color:#999;">'+item.sqm+' sqm</small></div>';
         html += '<div style="text-align:right;font-weight:700;color:#2196F3;">USD '+item.price.toFixed(2)+'</div>';
@@ -41851,8 +41851,21 @@ document.addEventListener('DOMContentLoaded', function(){
                 eligible.forEach(function(row) {
                     row.querySelector('.construction-item-checkbox').checked = shouldCheck;
                 });
-                if (typeof window.updateSelectedItemsList === 'function') window.updateSelectedItemsList();
-                if (typeof window.calculateConstructionTotal === 'function') window.calculateConstructionTotal();
+                // Drive the list's own change handler rather than the global helpers:
+                // it rebuilds the selected-items panel and the running total the same
+                // way a manual click does, and it stamps every drag item with the rate
+                // id the Generate step looks up. One event is enough because the handler
+                // rebuilds the whole panel from the checked boxes.
+                var probe = eligible[0].querySelector('.construction-item-checkbox');
+                if (probe) probe.dispatchEvent(new Event('change', { bubbles: true }));
+                // Defensive: if no renderer handled that change, fall back to the
+                // page-level helpers so the panel can never stay stale.
+                var panel = document.getElementById('selectedItemsContainer');
+                var panelFilled = !!(panel && panel.querySelector('.selected-item-drag'));
+                if (panelFilled !== shouldCheck) {
+                    if (typeof window.updateSelectedItemsList === 'function') window.updateSelectedItemsList();
+                    if (typeof window.calculateConstructionTotal === 'function') window.calculateConstructionTotal();
+                }
             } finally {
                 button.innerHTML = originalHtml;
                 button.disabled = originalDisabled;

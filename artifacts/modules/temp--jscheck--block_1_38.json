@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Block138",
+  "file": "temp/jscheck/block_1_38.js",
+  "purpose": "Disable update btns",
+  "entry_function": "disableUpdateBtns",
+  "entry_flows": [],
+  "public_api": [
+    "disableUpdateBtns",
+    "setInterval"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "bb355fe62808cd74",
+  "file_mtime": 1793893771782.1392,
+  "file_size": 635,
+  "file_birthtime": 1793893771778.2195,
+  "generated_at": "2026-11-05T15:49:35.704713Z",
+  "stale": false
+}

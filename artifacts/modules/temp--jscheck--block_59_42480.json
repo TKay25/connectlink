@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Block5942480",
+  "file": "temp/jscheck/block_59_42480.js",
+  "purpose": "Fetch",
+  "entry_function": "fetch",
+  "entry_flows": [],
+  "public_api": [
+    "fetch",
+    "if",
+    "for"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "89b9d0ccd1bee065",
+  "file_mtime": 1793893783942.6475,
+  "file_size": 23879,
+  "file_birthtime": 1793893783940.5398,
+  "generated_at": "2026-11-05T15:50:09.783270Z",
+  "stale": false
+}

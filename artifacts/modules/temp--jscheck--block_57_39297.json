@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Block5739297",
+  "file": "temp/jscheck/block_57_39297.js",
+  "purpose": "Switch chat from Bot to Human mode, then send the pending message */",
+  "entry_function": "if",
+  "entry_flows": [],
+  "public_api": [
+    "if",
+    "showToast",
+    "catch",
+    "clearTimeout"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "9e483eaba08d925a",
+  "file_mtime": 1793893783306.74,
+  "file_size": 121941,
+  "file_birthtime": 1793893783306.74,
+  "generated_at": "2026-11-05T15:50:01.658117Z",
+  "stale": false
+}

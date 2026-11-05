@@ -3,7 +3,7 @@
   "_managed_by": "artifacto-plugin",
   "module": "Workspace",
   "file": "",
-  "purpose": "Workspace snapshot — 150 module(s). 142 orphaned artifact(s) need review.",
+  "purpose": "Workspace snapshot — 150 module(s). 143 orphaned artifact(s) need review.",
   "entry_function": "",
   "entry_flows": [],
   "public_api": [],
@@ -15,7 +15,7 @@
     "output": "",
     "side_effects": ""
   },
-  "notes": "Last sync: 2026-11-05T07:45:14.498Z. Modules: 150. Orphaned: 142.",
+  "notes": "Last sync: 2026-11-05T15:43:58.626Z. Modules: 150. Orphaned: 143.",
   "why": {},
   "dont_touch": [],
   "known_risks": [
@@ -31,6 +31,6 @@
   ],
   "generated_from_commit": "",
   "file_hash": "",
-  "generated_at": "2026-11-05T07:45:14.498Z",
+  "generated_at": "2026-11-05T15:43:58.626Z",
   "stale": false
 }

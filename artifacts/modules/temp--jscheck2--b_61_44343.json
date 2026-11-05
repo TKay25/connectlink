@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "B6144343",
+  "file": "temp/jscheck2/b_61_44343.js",
+  "purpose": "Cl btn loading",
+  "entry_function": "clBtnLoading",
+  "entry_flows": [],
+  "public_api": [
+    "clBtnLoading",
+    "if",
+    "alert",
+    "clAddInvoiceItem"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "b70a8936ae9878c9",
+  "file_mtime": 1793894655123.7876,
+  "file_size": 21827,
+  "file_birthtime": 1793894655123.7876,
+  "generated_at": "2026-11-05T16:04:23.701055Z",
+  "stale": false
+}

@@ -1,10 +1,14 @@
 {
-  "last_sync": "2026-11-05T07:45:14.498Z",
+  "last_sync": "2026-11-05T15:43:58.626Z",
   "module_count": 150,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 142,
+  "orphaned_count": 143,
   "orphaned": [
+    {
+      "artifact": "artifacts/modules/.tmp-qpdf--html2pdf.bundle.min.json",
+      "source": ".tmp-qpdf/html2pdf.bundle.min.js"
+    },
     {
       "artifact": "artifacts/modules/final_err.json",
       "source": "final_err.txt"

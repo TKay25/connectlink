@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "B2323765",
+  "file": "temp/jscheck2/b_23_23765.js",
+  "purpose": "Load audit data",
+  "entry_function": "loadAuditData",
+  "entry_flows": [],
+  "public_api": [
+    "loadAuditData",
+    "fetch",
+    "if",
+    "displayAuditResults",
+    "alert"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "889daafea1a69115",
+  "file_mtime": 1793894648497.8699,
+  "file_size": 9197,
+  "file_birthtime": 1793894648495.8982,
+  "generated_at": "2026-11-05T16:04:11.304066Z",
+  "stale": false
+}

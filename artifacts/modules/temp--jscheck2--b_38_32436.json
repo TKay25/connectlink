@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "B3832436",
+  "file": "temp/jscheck2/b_38_32436.js",
+  "purpose": "B 38 32436",
+  "entry_function": "if",
+  "entry_flows": [],
+  "public_api": [
+    "if",
+    "alert"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "cc6db47eca7d001d",
+  "file_mtime": 1793894651157.8088,
+  "file_size": 2544,
+  "file_birthtime": 1793894651156.6033,
+  "generated_at": "2026-11-05T16:04:17.904675Z",
+  "stale": false
+}

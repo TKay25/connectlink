@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "B4633420",
+  "file": "temp/jscheck2/b_46_33420.js",
+  "purpose": "B 46 33420",
+  "entry_function": "if",
+  "entry_flows": [],
+  "public_api": [
+    "if",
+    "restoreTableButton",
+    "refreshContractOfflineStatus"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Patterns: async/await",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "6d602b5b1c577444",
+  "file_mtime": 1793894652714.7432,
+  "file_size": 10390,
+  "file_birthtime": 1793894652712.7273,
+  "generated_at": "2026-11-05T16:04:21.772740Z",
+  "stale": false
+}
