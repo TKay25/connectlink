@@ -35069,31 +35069,12 @@ let quillDetailsNotes = null;
 
         // Select All visible items button
         $('#selectAllVisibleBtn').click(function() {
-            let visibleCount = 0;
-            let checkedCount = 0;
-
-            // Count visible and checked items
-            $('.construction-item-row').each(function() {
-                if ($(this).is(':visible')) {
-                    visibleCount++;
-                    if ($(this).find('.construction-item-checkbox').is(':checked')) {
-                        checkedCount++;
-                    }
-                }
-            });
-
-            // If all visible items are already checked, uncheck them; otherwise check all visible
-            const shouldCheck = checkedCount < visibleCount;
-            
-            $('.construction-item-row').each(function() {
-                if ($(this).is(':visible')) {
-                    $(this).find('.construction-item-checkbox').prop('checked', shouldCheck);
-                }
-            });
-
-            updateSelectedItemsList();
-            calculateConstructionTotal();
+            if (typeof window.selectAllVisibleConstructionItems === 'function') {
+                window.selectAllVisibleConstructionItems(this);
+            }
         });
+        var selectAllConstructionButton = document.getElementById('selectAllVisibleBtn');
+        if (selectAllConstructionButton) selectAllConstructionButton._laterBound = true;
 
         // Handle Generate Quotation button click
         function getSelectedFullHouseDisplayMode() {
@@ -41718,23 +41699,62 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     
     // 6. Select All visible items button
+    window.selectAllVisibleConstructionItems = function(button) {
+        if (!button || button._selectingItems) return;
+
+        var eligible = Array.prototype.filter.call(
+            document.querySelectorAll('.construction-item-row'),
+            function(row) {
+                if (!row.getClientRects().length || window.getComputedStyle(row).display === 'none') return false;
+                var checkbox = row.querySelector('.construction-item-checkbox');
+                return checkbox && !checkbox.disabled;
+            }
+        );
+        if (!eligible.length) return;
+
+        var checked = eligible.filter(function(row) {
+            return row.querySelector('.construction-item-checkbox').checked;
+        }).length;
+        var shouldCheck = checked < eligible.length;
+        var originalHtml = button.innerHTML;
+        var originalDisabled = button.disabled;
+        button._selectingItems = true;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> '
+            + (shouldCheck ? 'Selecting...' : 'Updating selection...');
+
+        function finishSelection() {
+            try {
+                eligible.forEach(function(row) {
+                    row.querySelector('.construction-item-checkbox').checked = shouldCheck;
+                });
+                if (typeof window.updateSelectedItemsList === 'function') window.updateSelectedItemsList();
+                if (typeof window.calculateConstructionTotal === 'function') window.calculateConstructionTotal();
+            } finally {
+                button.innerHTML = originalHtml;
+                button.disabled = originalDisabled;
+                button.removeAttribute('aria-busy');
+                button._selectingItems = false;
+            }
+        }
+
+        // Let the browser paint the status before batching the checkbox updates.
+        if (window.requestAnimationFrame) {
+            window.requestAnimationFrame(function() {
+                window.requestAnimationFrame(finishSelection);
+            });
+        } else {
+            setTimeout(finishSelection, 0);
+        }
+    };
+
     var selBtn = document.getElementById('selectAllVisibleBtn');
     if(selBtn && !selBtn._earlyBound){
         selBtn._earlyBound = true;
         selBtn.addEventListener('click', function(){
-            var visible = document.querySelectorAll('.construction-item-row:not([style*="display:none"]):not([style*="display: none"])');
-            var checked = 0;
-            visible.forEach(function(row){
-                var cb = row.querySelector('.construction-item-checkbox');
-                if(cb && !cb.disabled && cb.checked) checked++;
-            });
-            var shouldCheck = checked < visible.length;
-            visible.forEach(function(row){
-                var cb = row.querySelector('.construction-item-checkbox');
-                if(cb && !cb.disabled){ cb.checked = shouldCheck; cb.dispatchEvent(new Event('change')); }
-            });
-            if(typeof window.updateSelectedItemsList==='function') window.updateSelectedItemsList();
-            if(typeof window.calculateConstructionTotal==='function') window.calculateConstructionTotal();
+            if (selBtn._laterBound) return;
+            window.selectAllVisibleConstructionItems(selBtn);
         });
     }
     

@@ -67,6 +67,8 @@ check('the shared design kit exists', 'window.CLQPdf = (function () {' in SRC)
 kit = slice_between(SRC, 'window.CLQPdf = (function () {', '\n})();') + '\n})();'
 check('the kit carries the contract palette',
       '#1E2A56' in kit and '#2A3A78' in kit and '#d1d9f0' in kit)
+check('the shared block helper does not force an extra page',
+      '.clq-page-start' not in kit and 'function block(inner)' in kit)
 isolated_render = slice_between(SRC, 'function renderIsolated(htmlContent, options) {',
                                 '\n    function renderInline')
 check('the isolated renderer mounts quotation markup before waiting for fonts',
@@ -84,6 +86,9 @@ for builder, header in (('project quotation', 'async function generateQuotationP
                         ('portal download', 'window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal || async function(qId) {')):
     body = extract_function(SRC, header)
     check(f'the {builder} is built with the design kit', 'CLQPdf' in body or 'Q.' in body)
+    if builder in ('project quotation', 'portal download'):
+        check(f'the {builder} does not force VAT terms onto another page',
+              'clq-page-start' not in body)
     check(f'the {builder} no longer draws a 100x2px navy rule',
           'width:100px;height:2px' not in body.replace(' ', '')
           and 'width: 100px; height: 2px' not in body)
@@ -131,6 +136,7 @@ HELPERS = '\n\n'.join(
         'function getQuotationVatSettings() {',
         'function computeQuotationVat(amount, vat) {',
         'function formatCategoryName(category, customCategory) {',
+        'function quotationShowsWorkSchedule(category, placement) {',
     ))
 
 GEN_PROJECT = slice_between(SRC, 'async function generateQuotationPDF(',
@@ -158,6 +164,12 @@ window.runBuilders = async function () {
         out.project = await window.generateQuotationPDF('datauri', 'default');
     } catch (e) { out.projectError = String(e && e.message); }
     try {
+        window.quotationData = %s;
+        window.ganttChartData = window.quotationData.schedules || [];
+        window.quotationPdfTablePlacement = 'exclude';
+        out.projectVatCompact = await window.generateQuotationPDF('datauri', 'exclude');
+    } catch (e) { out.projectVatCompactError = String(e && e.message); }
+    try {
         window.kitchenQuotationData = %s;
         out.kitchen = await window.generateKitchenPDF('datauri');
     } catch (e) { out.kitchenError = String(e && e.message); }
@@ -165,7 +177,7 @@ window.runBuilders = async function () {
 };
 </script></head><body><div id="host"></div></body></html>
 """ % (CDN, kit, HELPERS, GEN_PROJECT, GEN_KITCHEN,
-       json.dumps(PROJECT), json.dumps(KITCHEN))
+       json.dumps(PROJECT), json.dumps(PROJECT), json.dumps(KITCHEN))
 
 HARNESS_PATH = os.path.join(ROOT, '_check_quotation_pdf_design_harness.html')
 open(HARNESS_PATH, 'w', encoding='utf-8').write(HARNESS)
@@ -185,7 +197,7 @@ else:
         data = page.evaluate("() => window.runBuilders()")
         elapsed = __import__('time').time() - started
         report = {'_seconds': round(elapsed, 1)}
-        for name in ('project', 'kitchen'):
+        for name in ('project', 'projectVatCompact', 'kitchen'):
             uri = data.get(name)
             if not uri:
                 report[name] = {'error': data.get(name + 'Error', 'no pdf')}
@@ -223,7 +235,7 @@ else:
                     if abs(r - g) < 14 and abs(g - b) < 14 and 55 < r < 190:
                         grey += 1
             # A tail page that holds only the footer looks like a bug in the deliverable.
-            last_ink = 1.0
+            last_ink = 0.0
             stray = []
             if doc.page_count > 1:
                 for y in range(height - 16, height):
@@ -234,19 +246,19 @@ else:
                             ink += 1
                     if ink > width * 0.2:                    # a rule, not text
                         stray.append(y)
-                last = doc[-1].get_pixmap(dpi=110)
-                bottom = 0
-                for y in range(last.height - 1, -1, -1):
-                    row_has_ink = False
-                    for x in range(0, last.width, 4):
-                        r, g, b = last.pixel(x, y)[:3]
-                        if not (r > 245 and g > 245 and b > 245):
-                            row_has_ink = True
-                            break
-                    if row_has_ink:
-                        bottom = y
+            last = doc[-1].get_pixmap(dpi=110)
+            bottom = 0
+            for y in range(last.height - 1, -1, -1):
+                row_has_ink = False
+                for x in range(0, last.width, 4):
+                    r, g, b = last.pixel(x, y)[:3]
+                    if not (r > 245 and g > 245 and b > 245):
+                        row_has_ink = True
                         break
-                last_ink = bottom / float(last.height)
+                if row_has_ink:
+                    bottom = y
+                    break
+            last_ink = bottom / float(last.height)
             report[name] = {'pages': doc.page_count, 'blue_rule': blue_run, 'navy': navy,
                             'logo': grey, 'last_ink': round(last_ink, 3),
                             'stray_bottom': stray, 'bytes': len(raw)}
@@ -291,9 +303,9 @@ else:
                   'offline: static checks only' if loaded != 'function' else '')
             if loaded == 'function':
                 report = render_and_inspect(page)
-                check('both quotations render quickly (no download hang)',
+                check('all quotations render quickly (no download hang)',
                       report['_seconds'] < 30, '%ss' % report['_seconds'])
-                for name in ('project', 'kitchen'):
+                for name in ('project', 'projectVatCompact', 'kitchen'):
                     info = report[name]
                     if 'error' in info:
                         check(f'the {name} quotation renders a PDF', False, info['error'])
@@ -309,6 +321,10 @@ else:
                           info['last_ink'] > 0.15, info['last_ink'])
                     check(f'the {name} quotation has no stray rule at a page edge',
                           not info['stray_bottom'], info['stray_bottom'])
+                compact = report['projectVatCompact']
+                check('VAT construction summary and final boxes fit on one page without item lists',
+                      compact.get('pages') == 1 and compact.get('last_ink', 0) > 0.55,
+                      compact)
                 check('no script error while building the documents', not errors, errors[:3])
             browser.close()
     except Exception as exc:                                                # noqa: BLE001

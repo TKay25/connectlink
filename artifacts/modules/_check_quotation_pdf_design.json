@@ -4,12 +4,12 @@
   "module": "CheckQuotationPdfDesign",
   "file": "_check_quotation_pdf_design.py",
   "purpose": "The quotation PDFs must look like the contract, and must not carry the blue rule.",
-  "entry_function": "class QuietHandler(http.server.SimpleHTTPRequestHandler)  # line 263",
+  "entry_function": "class QuietHandler(http.server.SimpleHTTPRequestHandler)  # line 275",
   "entry_flows": [
     "QuietHandler.log_message() → path.dirname, path.abspath, path.join, RESULTS.append"
   ],
   "public_api": [
-    "class QuietHandler(http.server.SimpleHTTPRequestHandler)  # line 263",
+    "class QuietHandler(http.server.SimpleHTTPRequestHandler)  # line 275",
     "  QuietHandler.log_message()",
     "check(name, ok, detail = '')",
     "extract_function(text, header)",
@@ -40,6 +40,6 @@
   "file_mtime": 1793362803249.005,
   "file_size": 11345,
   "file_birthtime": 1793362803249.005,
-  "generated_at": "2026-11-05T07:56:20.905570Z",
+  "generated_at": "2026-11-05T08:43:23.403903Z",
   "stale": false
 }
