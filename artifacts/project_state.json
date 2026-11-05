@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-11-05T15:43:58.626Z",
+  "last_sync": "2026-11-05T16:10:47.121Z",
   "module_count": 150,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 143,
+  "orphaned_count": 235,
   "orphaned": [
     {
       "artifact": "artifacts/modules/.tmp-qpdf--html2pdf.bundle.min.json",
@@ -36,6 +36,374 @@
     {
       "artifact": "artifacts/modules/payslip_out.json",
       "source": "payslip_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_0_36.json",
+      "source": "temp/jscheck/block_0_36.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_1_38.json",
+      "source": "temp/jscheck/block_1_38.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_22_21041.json",
+      "source": "temp/jscheck/block_22_21041.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_23_23765.json",
+      "source": "temp/jscheck/block_23_23765.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_24_23980.json",
+      "source": "temp/jscheck/block_24_23980.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_25_24080.json",
+      "source": "temp/jscheck/block_25_24080.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_26_25598.json",
+      "source": "temp/jscheck/block_26_25598.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_27_25783.json",
+      "source": "temp/jscheck/block_27_25783.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_28_25852.json",
+      "source": "temp/jscheck/block_28_25852.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_29_26061.json",
+      "source": "temp/jscheck/block_29_26061.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_2_55.json",
+      "source": "temp/jscheck/block_2_55.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_30_26262.json",
+      "source": "temp/jscheck/block_30_26262.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_31_26414.json",
+      "source": "temp/jscheck/block_31_26414.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_32_31354.json",
+      "source": "temp/jscheck/block_32_31354.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_33_31644.json",
+      "source": "temp/jscheck/block_33_31644.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_34_32011.json",
+      "source": "temp/jscheck/block_34_32011.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_35_32036.json",
+      "source": "temp/jscheck/block_35_32036.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_36_32096.json",
+      "source": "temp/jscheck/block_36_32096.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_37_32220.json",
+      "source": "temp/jscheck/block_37_32220.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_38_32436.json",
+      "source": "temp/jscheck/block_38_32436.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_39_32506.json",
+      "source": "temp/jscheck/block_39_32506.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_3_57.json",
+      "source": "temp/jscheck/block_3_57.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_40_32668.json",
+      "source": "temp/jscheck/block_40_32668.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_41_32707.json",
+      "source": "temp/jscheck/block_41_32707.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_42_32756.json",
+      "source": "temp/jscheck/block_42_32756.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_43_32795.json",
+      "source": "temp/jscheck/block_43_32795.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_44_32863.json",
+      "source": "temp/jscheck/block_44_32863.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_45_33146.json",
+      "source": "temp/jscheck/block_45_33146.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_46_33420.json",
+      "source": "temp/jscheck/block_46_33420.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_47_33645.json",
+      "source": "temp/jscheck/block_47_33645.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_48_33710.json",
+      "source": "temp/jscheck/block_48_33710.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_49_34038.json",
+      "source": "temp/jscheck/block_49_34038.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_4_73.json",
+      "source": "temp/jscheck/block_4_73.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_50_34195.json",
+      "source": "temp/jscheck/block_50_34195.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_51_34223.json",
+      "source": "temp/jscheck/block_51_34223.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_52_34453.json",
+      "source": "temp/jscheck/block_52_34453.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_53_38734.json",
+      "source": "temp/jscheck/block_53_38734.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_54_38767.json",
+      "source": "temp/jscheck/block_54_38767.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_56_39003.json",
+      "source": "temp/jscheck/block_56_39003.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_57_39297.json",
+      "source": "temp/jscheck/block_57_39297.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_58_41599.json",
+      "source": "temp/jscheck/block_58_41599.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_59_42480.json",
+      "source": "temp/jscheck/block_59_42480.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_5_3843.json",
+      "source": "temp/jscheck/block_5_3843.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_60_43610.json",
+      "source": "temp/jscheck/block_60_43610.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_61_44334.json",
+      "source": "temp/jscheck/block_61_44334.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck--block_6_6341.json",
+      "source": "temp/jscheck/block_6_6341.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_0_36.json",
+      "source": "temp/jscheck2/b_0_36.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_1_38.json",
+      "source": "temp/jscheck2/b_1_38.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_22_21041.json",
+      "source": "temp/jscheck2/b_22_21041.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_23_23765.json",
+      "source": "temp/jscheck2/b_23_23765.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_24_23980.json",
+      "source": "temp/jscheck2/b_24_23980.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_25_24080.json",
+      "source": "temp/jscheck2/b_25_24080.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_26_25598.json",
+      "source": "temp/jscheck2/b_26_25598.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_27_25783.json",
+      "source": "temp/jscheck2/b_27_25783.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_28_25852.json",
+      "source": "temp/jscheck2/b_28_25852.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_29_26061.json",
+      "source": "temp/jscheck2/b_29_26061.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_2_55.json",
+      "source": "temp/jscheck2/b_2_55.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_30_26262.json",
+      "source": "temp/jscheck2/b_30_26262.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_31_26414.json",
+      "source": "temp/jscheck2/b_31_26414.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_32_31354.json",
+      "source": "temp/jscheck2/b_32_31354.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_33_31644.json",
+      "source": "temp/jscheck2/b_33_31644.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_34_32011.json",
+      "source": "temp/jscheck2/b_34_32011.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_35_32036.json",
+      "source": "temp/jscheck2/b_35_32036.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_36_32096.json",
+      "source": "temp/jscheck2/b_36_32096.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_37_32220.json",
+      "source": "temp/jscheck2/b_37_32220.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_38_32436.json",
+      "source": "temp/jscheck2/b_38_32436.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_39_32506.json",
+      "source": "temp/jscheck2/b_39_32506.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_3_57.json",
+      "source": "temp/jscheck2/b_3_57.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_40_32668.json",
+      "source": "temp/jscheck2/b_40_32668.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_41_32707.json",
+      "source": "temp/jscheck2/b_41_32707.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_42_32756.json",
+      "source": "temp/jscheck2/b_42_32756.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_43_32795.json",
+      "source": "temp/jscheck2/b_43_32795.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_44_32863.json",
+      "source": "temp/jscheck2/b_44_32863.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_45_33146.json",
+      "source": "temp/jscheck2/b_45_33146.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_46_33420.json",
+      "source": "temp/jscheck2/b_46_33420.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_47_33645.json",
+      "source": "temp/jscheck2/b_47_33645.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_48_33710.json",
+      "source": "temp/jscheck2/b_48_33710.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_49_34038.json",
+      "source": "temp/jscheck2/b_49_34038.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_4_73.json",
+      "source": "temp/jscheck2/b_4_73.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_50_34195.json",
+      "source": "temp/jscheck2/b_50_34195.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_51_34223.json",
+      "source": "temp/jscheck2/b_51_34223.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_52_34453.json",
+      "source": "temp/jscheck2/b_52_34453.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_53_38734.json",
+      "source": "temp/jscheck2/b_53_38734.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_54_38767.json",
+      "source": "temp/jscheck2/b_54_38767.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_56_39003.json",
+      "source": "temp/jscheck2/b_56_39003.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_57_39297.json",
+      "source": "temp/jscheck2/b_57_39297.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_58_41599.json",
+      "source": "temp/jscheck2/b_58_41599.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_59_42489.json",
+      "source": "temp/jscheck2/b_59_42489.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_5_3843.json",
+      "source": "temp/jscheck2/b_5_3843.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_60_43619.json",
+      "source": "temp/jscheck2/b_60_43619.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_61_44343.json",
+      "source": "temp/jscheck2/b_61_44343.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jscheck2--b_6_6341.json",
+      "source": "temp/jscheck2/b_6_6341.js"
     },
     {
       "artifact": "artifacts/modules/templates--copy.json",
@@ -578,5 +946,54 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "temp/jscheck2/b_6_6341.js",
+      "ts": "2026-11-05T16:10:46.160Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_61_44343.js",
+      "ts": "2026-11-05T16:10:46.157Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_60_43619.js",
+      "ts": "2026-11-05T16:10:46.152Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_5_3843.js",
+      "ts": "2026-11-05T16:10:46.137Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_59_42489.js",
+      "ts": "2026-11-05T16:10:46.132Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_58_41599.js",
+      "ts": "2026-11-05T16:10:46.118Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_57_39297.js",
+      "ts": "2026-11-05T16:10:46.115Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_56_39003.js",
+      "ts": "2026-11-05T16:10:46.111Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_54_38767.js",
+      "ts": "2026-11-05T16:10:46.106Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_53_38734.js",
+      "ts": "2026-11-05T16:10:46.102Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_52_34453.js",
+      "ts": "2026-11-05T16:10:46.099Z"
+    },
+    {
+      "rel": "temp/jscheck2/b_51_34223.js",
+      "ts": "2026-11-05T16:10:46.095Z"
+    }
+  ]
 }

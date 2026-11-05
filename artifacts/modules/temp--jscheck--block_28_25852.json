@@ -33,5 +33,6 @@
   "file_size": 7705,
   "file_birthtime": 1793893774867.6074,
   "generated_at": "2026-11-05T15:49:41.066913Z",
-  "stale": false
+  "stale": true,
+  "stale_reason": "source file deleted"
 }
