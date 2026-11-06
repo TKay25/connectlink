@@ -15420,20 +15420,43 @@ def get_system_update_status():
                 return jsonify({
                     'success': True,
                     'latest_id': latest_id,
-                    'changed': False
+                    'changed': False,
+                    'change_count': 0,
+                    'changes': []
                 })
 
             cursor.execute("""
                 SELECT COALESCE(MAX(id), %s),
-                       COALESCE(BOOL_OR(user_name IS DISTINCT FROM %s), FALSE)
+                COUNT(*) FILTER (WHERE user_name IS DISTINCT FROM %s)
                 FROM activity_log
                 WHERE id > %s
             """, (after_id, current_user, after_id))
-            latest_id, changed = cursor.fetchone()
+            latest_id, change_count = cursor.fetchone()
+            change_count = int(change_count or 0)
+
+            changes = []
+            if change_count:
+                cursor.execute("""
+                    SELECT id, action_type, description, user_name, created_at
+                    FROM activity_log
+                    WHERE id > %s AND user_name IS DISTINCT FROM %s
+                    ORDER BY id DESC
+                    LIMIT 5
+                """, (after_id, current_user))
+                changes = [{
+                    'id': row[0],
+                    'action_type': row[1] or '',
+                    'description': row[2] or '',
+                    'user_name': row[3] or 'System',
+                    'created_at': row[4].strftime('%d %b %Y, %H:%M') if row[4] else ''
+                } for row in cursor.fetchall()]
+
             return jsonify({
                 'success': True,
                 'latest_id': latest_id,
-                'changed': bool(changed)
+                'changed': change_count > 0,
+                'change_count': change_count,
+                'changes': changes
             })
     except Exception:
         app.logger.exception('Failed to check activity log for system updates')
@@ -42235,7 +42258,7 @@ def contract_log():
                 # Log project creation
                 log_activity(
                     'project_created',
-                    f"Project '{project_name}' created for {client_name}",
+                    f"Project contract '{project_name}' created for {client_name}",
                     'project', project_id,
                     {'client': client_name, 'amount': str(total_contract_price), 'location': project_location}
                 )
