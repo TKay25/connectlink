@@ -1,0 +1,40 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "StubServer",
+  "file": "temp/stub_server.py",
+  "purpose": "Throwaway harness: render the real adminpage.html with stub data so the page's",
+  "entry_function": "admin()",
+  "entry_flows": [
+    "stub_server → app.route, jinja_env.get_template, app.run"
+  ],
+  "public_api": [
+    "admin()",
+    "rates()",
+    "api_stub(rest)",
+    "misc(rest)"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))), RATES = [('Land Clearing', 3.0, 0.5), ('Setting out', 1.2, 0.2), ('Excavation', 3.3, 0.5), ('Footing', 7.4, 0.8), ('Box', 15.0, 1.0), ('Removal', 1.2, 0.2), ('Backfilling and Compaction', 2.5, 0.4), ('Slab', 25.0, 1.2), ('Window sill level', 12.0, 0.6), ('Window head', 20.0, 0.6), ('Ring Beam', 15.04, 0.7), ('Wall plate', 20.0, 0.6), ('Roofing', 20.0, 1.0), ('Aluminium', 15.8, 0.5), ('Shattering', 10.0, 0.5), ('Steel Fixing', 20.0, 0.8), ('Deck Pouring', 20.0, 0.8), ('1st Fix Electricals', 3.2, 0.3), ('1st Fix Plumbing', 5.2, 0.3), ('External Plastering', 10.6, 0.8), ('Internal Plastering', 8.0, 0.8), ('Ceiling', 18.2, 0.7), ('Skimming', 4.8, 0.4), ('Flooring', 10.14, 0.6), ('Tiling', 20.0, 0.8), ('Wall Tiling', 12.8, 0.6), ('Painting', 45.0, 1.0), ('Screeding', 7.14, 0.4), ('Review', 12.78, 0.3), ('Beam filling', 5.9, 0.3), ('TnCs', 12.4, 0.2), ('Final fix Plumbing', 10.0, 0.4), ('Final fix Electricals', 12.6, 0.4), ('Doors and door frames', 9.8, 0.6), ('Cleaning', 0.0, 0.1)], RATE_ROWS = [{'id': i + 1, 'item': n, 'daysPerSqMeter': d, 'inhouseRate': r} for i, (n, r, d) in enumerate(RATES)], CTX = dict(locations=[], frequencies=[], month_options=[], payment_stats={}, table_datamain_html='', count_completed=0, count_ongoing=0, can_edit_projects=True, can_edit_project_money=True, can_manage_hr=True, hr_access=True, can_manage_roles=True, can_manage_hardware=True, can_view_payments=True, can_download_master_file=True, user_name='Tester', userid=1, companyname='ConnectLink')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "1d4911bd2f5656de",
+  "file_mtime": 1793895552268.2117,
+  "file_size": 2806,
+  "file_birthtime": 1793895552263.9712,
+  "generated_at": "2026-11-05T16:19:16.946842Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

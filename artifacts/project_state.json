@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-11-05T16:10:47.121Z",
-  "module_count": 150,
+  "last_sync": "2026-11-06T06:44:27.961Z",
+  "module_count": 151,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 235,
+  "orphaned_count": 237,
   "orphaned": [
     {
       "artifact": "artifacts/modules/.tmp-qpdf--html2pdf.bundle.min.json",
@@ -404,6 +404,14 @@
     {
       "artifact": "artifacts/modules/temp--jscheck2--b_6_6341.json",
       "source": "temp/jscheck2/b_6_6341.js"
+    },
+    {
+      "artifact": "artifacts/modules/temp--stub_server.json",
+      "source": "temp/stub_server.py"
+    },
+    {
+      "artifact": "artifacts/modules/temp--stub_server_any.json",
+      "source": "temp/stub_server_any.py"
     },
     {
       "artifact": "artifacts/modules/templates--copy.json",
@@ -946,54 +954,5 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": [
-    {
-      "rel": "temp/jscheck2/b_6_6341.js",
-      "ts": "2026-11-05T16:10:46.160Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_61_44343.js",
-      "ts": "2026-11-05T16:10:46.157Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_60_43619.js",
-      "ts": "2026-11-05T16:10:46.152Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_5_3843.js",
-      "ts": "2026-11-05T16:10:46.137Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_59_42489.js",
-      "ts": "2026-11-05T16:10:46.132Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_58_41599.js",
-      "ts": "2026-11-05T16:10:46.118Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_57_39297.js",
-      "ts": "2026-11-05T16:10:46.115Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_56_39003.js",
-      "ts": "2026-11-05T16:10:46.111Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_54_38767.js",
-      "ts": "2026-11-05T16:10:46.106Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_53_38734.js",
-      "ts": "2026-11-05T16:10:46.102Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_52_34453.js",
-      "ts": "2026-11-05T16:10:46.099Z"
-    },
-    {
-      "rel": "temp/jscheck2/b_51_34223.js",
-      "ts": "2026-11-05T16:10:46.095Z"
-    }
-  ]
+  "recent_deletions": []
 }

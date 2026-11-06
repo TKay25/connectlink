@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "WhatsappModalTestServer",
+  "file": "temp/whatsapp_modal_test_server.py",
+  "purpose": "Admin",
+  "entry_function": "admin()",
+  "entry_flows": [
+    "whatsapp_modal_test_server → app.route, app.run"
+  ],
+  "public_api": [
+    "admin()",
+    "api_stub(rest)"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "51e104c02302c8dc",
+  "file_mtime": 1793949089437.261,
+  "file_size": 1163,
+  "file_birthtime": 1793949089437.261,
+  "generated_at": "2026-11-06T07:11:42.908876Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

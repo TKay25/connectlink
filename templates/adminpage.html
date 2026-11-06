@@ -22189,6 +22189,12 @@ function openModal(modalId) {
         if (modalId === 'whatsappChatModal') {
             modal.style.zIndex = 10070;
         }
+
+        // The number prompt opens over quotation previews and the quotation
+        // details modal; give it a higher stacking level so its form is clickable.
+        if (modalId === 'quotationWhatsappModal') {
+            modal.style.zIndex = 10080;
+        }
         
         // Load installments audit data when audit modal opens
         if (modalId === 'auditInstallmentsModal') {
@@ -26651,7 +26657,12 @@ async function sendKitchenQuotation() {
     const clientWhatsapp = (data.clientWhatsapp || '').toString().trim();
     
     if (!clientWhatsapp) {
-        alert('Client WhatsApp number is required before sending quotation.');
+        openQuotationWhatsappPrompt(data, async function(whatsappNumber) {
+            data.clientWhatsapp = whatsappNumber;
+            const whatsappInput = document.getElementById('quotationClientWhatsapp');
+            if (whatsappInput) whatsappInput.value = whatsappNumber;
+            await sendKitchenQuotation();
+        });
         return;
     }
     
@@ -36338,7 +36349,7 @@ window.displayGanttChartInPreview = displayGanttChartInPreview;
 
 
 // Update the sendQuotationBtn click handler
-$('#sendQuotationBtn').click(async function() {
+async function handleSendConstructionQuotation() {
     const data = window.quotationData;
     if (!data) {
         alert('No quotation data available. Please create a quotation first.');
@@ -36347,11 +36358,16 @@ $('#sendQuotationBtn').click(async function() {
 
     const clientWhatsapp = (data.clientWhatsapp || '').toString().trim();
     if (!clientWhatsapp) {
-        alert('Client WhatsApp number is required before sending quotation.');
+        openQuotationWhatsappPrompt(data, async function(whatsappNumber) {
+            data.clientWhatsapp = whatsappNumber;
+            const whatsappInput = document.getElementById('quotationClientWhatsapp');
+            if (whatsappInput) whatsappInput.value = whatsappNumber;
+            await handleSendConstructionQuotation();
+        });
         return;
     }
 
-    const btn = this;
+    const btn = document.getElementById('sendQuotationBtn');
     const originalText = btn.innerHTML;
     btn.disabled = true;
 
@@ -36486,7 +36502,8 @@ $('#sendQuotationBtn').click(async function() {
         btn.disabled = false;
         btn.innerHTML = originalText;
     }
-});
+}
+$('#sendQuotationBtn').click(handleSendConstructionQuotation);
 
 // Reset form when modal is closed and clean up editing context
         $('#quotationgeneratorModal').on('hidden.bs.modal', function() {
@@ -38529,8 +38546,10 @@ async function sendQuotationWithWhatsapp(quotation) {
     }
 }
 
-function openQuotationWhatsappPrompt(quotation) {
+function openQuotationWhatsappPrompt(quotation, onNumberProvided) {
     window.pendingQuotationWhatsapp = quotation;
+    window.pendingQuotationWhatsappSendHandler =
+        typeof onNumberProvided === 'function' ? onNumberProvided : null;
     const input = document.getElementById('quotationWhatsappInput');
     const client = document.getElementById('quotationWhatsappClientName');
     const error = document.getElementById('quotationWhatsappError');
@@ -38550,11 +38569,13 @@ function openQuotationWhatsappPrompt(quotation) {
 
 function closeQuotationWhatsappPrompt() {
     window.pendingQuotationWhatsapp = null;
+    window.pendingQuotationWhatsappSendHandler = null;
     if (typeof closeModal === 'function') closeModal('quotationWhatsappModal');
 }
 
 async function saveQuotationWhatsappAndSend() {
     const quotation = window.pendingQuotationWhatsapp;
+    const sendAfterNumberProvided = window.pendingQuotationWhatsappSendHandler;
     const input = document.getElementById('quotationWhatsappInput');
     const saveButton = document.getElementById('saveQuotationWhatsappBtn');
     const saveText = document.getElementById('saveQuotationWhatsappText');
@@ -38573,6 +38594,17 @@ async function saveQuotationWhatsappAndSend() {
     if (saveSpinner) saveSpinner.classList.remove('d-none');
     if (error) error.textContent = '';
     try {
+        if (sendAfterNumberProvided) {
+            quotation.clientWhatsapp = input.value.trim();
+            const generatorInput = document.getElementById('quotationClientWhatsapp');
+            if (generatorInput) generatorInput.value = quotation.clientWhatsapp;
+            window.pendingQuotationWhatsapp = null;
+            window.pendingQuotationWhatsappSendHandler = null;
+            if (typeof closeModal === 'function') closeModal('quotationWhatsappModal');
+            await sendAfterNumberProvided(quotation.clientWhatsapp);
+            return;
+        }
+
         const response = await fetch('/api/quotations/' + encodeURIComponent(quotation.id) + '/whatsapp', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -38590,6 +38622,7 @@ async function saveQuotationWhatsappAndSend() {
             displayQuotationDetailsInModal(window.currentViewingQuotation);
         }
         window.pendingQuotationWhatsapp = null;
+        window.pendingQuotationWhatsappSendHandler = null;
         if (typeof closeModal === 'function') closeModal('quotationWhatsappModal');
 
         if (sendButton) sendButton.disabled = true;
