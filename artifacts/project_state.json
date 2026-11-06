@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-11-06T06:44:27.961Z",
+  "last_sync": "2026-11-06T11:50:20.409Z",
   "module_count": 151,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 237,
+  "orphaned_count": 240,
   "orphaned": [
     {
       "artifact": "artifacts/modules/.tmp-qpdf--html2pdf.bundle.min.json",
@@ -36,6 +36,10 @@
     {
       "artifact": "artifacts/modules/payslip_out.json",
       "source": "payslip_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/temp--jquery.min.json",
+      "source": "temp/jquery.min.js"
     },
     {
       "artifact": "artifacts/modules/temp--jscheck--block_0_36.json",
@@ -406,12 +410,20 @@
       "source": "temp/jscheck2/b_6_6341.js"
     },
     {
+      "artifact": "artifacts/modules/temp--oldtpl--adminpage.json",
+      "source": "temp/oldtpl/adminpage.html"
+    },
+    {
       "artifact": "artifacts/modules/temp--stub_server.json",
       "source": "temp/stub_server.py"
     },
     {
       "artifact": "artifacts/modules/temp--stub_server_any.json",
       "source": "temp/stub_server_any.py"
+    },
+    {
+      "artifact": "artifacts/modules/temp--whatsapp_modal_test_server.json",
+      "source": "temp/whatsapp_modal_test_server.py"
     },
     {
       "artifact": "artifacts/modules/templates--copy.json",
@@ -954,5 +966,10 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "temp/oldtpl/adminpage.html",
+      "ts": "2026-11-06T11:50:14.409Z"
+    }
+  ]
 }
