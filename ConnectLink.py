@@ -121,6 +121,13 @@ def add_no_cache_headers(response):
     return response
 
 
+_AUTH_SESSION_ID_KEYS = ('user_id', 'userid', 'user_uuid')
+
+
+def _has_authenticated_session():
+    return any(session.get(key) not in (None, '') for key in _AUTH_SESSION_ID_KEYS)
+
+
 # ---- ONE shared front-end feedback layer, injected on every HTML page --------
 # Roughly 169 hand-written "Saving..." snippets live in only 6 of the 16
 # templates, so a button that commits to the backend had a spinner only where
@@ -134,6 +141,10 @@ def add_no_cache_headers(response):
 # fragment, a download, a redirect, a streamed response or a JSON payload - and
 # it can never raise into the request: a cosmetic layer must not 500 a page.
 _CL_UI_TAG_BYTES = b'<script src="/static/js/cl-ui.js" defer></script>'
+_CL_SYSTEM_UPDATE_TAG_BYTES = (
+    b'<script id="cl-system-update-notice-script" '
+    b'src="/static/js/system-update-notice.js" defer></script>'
+)
 
 
 @app.after_request
@@ -152,13 +163,29 @@ def add_cl_ui_feedback_layer(response):
             return response
         if b'<html' not in body[:2000].lower():
             return response           # AJAX fragment / HTML partial -> leave untouched
-        if b'js/cl-ui.js' in body:
-            return response           # already injected
+        tags_to_add = []
+        if b'js/cl-ui.js' not in body:
+            tags_to_add.append(_CL_UI_TAG_BYTES)
+        if (_has_authenticated_session()
+                and b'js/system-update-notice.js' not in body):
+            initial_cursor = getattr(g, 'system_update_initial_cursor', None)
+            if initial_cursor is None:
+                update_tag = _CL_SYSTEM_UPDATE_TAG_BYTES
+            else:
+                cursor_value = str(int(initial_cursor)).encode('ascii')
+                update_tag = (
+                    b'<script id="cl-system-update-notice-script" '
+                    b'data-initial-cursor="' + cursor_value +
+                    b'" src="/static/js/system-update-notice.js" defer></script>'
+                )
+            tags_to_add.append(update_tag)
+        if not tags_to_add:
+            return response
         # Use the LAST </body>: several templates contain "</body>" inside JS
         # strings that build print/PDF documents, and injecting into one of those
         # would corrupt the script instead of loading the layer.
         idx = body.rfind(b'</body>')
-        new_body = body[:idx] + _CL_UI_TAG_BYTES + body[idx:]
+        new_body = body[:idx] + b''.join(tags_to_add) + body[idx:]
         response.set_data(new_body)
         response.headers['Content-Length'] = str(len(new_body))
     except Exception as exc:
@@ -4959,6 +4986,25 @@ def _ensure_db_initialized():
 @app.before_request
 def _db_init_before_request():
     _ensure_db_initialized()
+
+
+@app.before_request
+def capture_system_update_cursor():
+    if (request.method != 'GET'
+            or request.path.startswith(('/api/', '/static/'))
+            or 'text/html' not in request.headers.get('Accept', '').lower()
+            or not _has_authenticated_session()):
+        return
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT COALESCE(MAX(id), 0) FROM activity_log")
+            row = cursor.fetchone()
+            if row is None:
+                raise RuntimeError('Activity-log cursor query returned no row')
+            g.system_update_initial_cursor = row[0]
+    except Exception:
+        app.logger.exception('Failed to capture the initial activity-log cursor')
 
 
 
@@ -15349,6 +15395,52 @@ def get_activity_log_users():
             return jsonify({'success': True, 'users': users})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/system-updates', methods=['GET'])
+def get_system_update_status():
+    """Report activity-log changes made after a signed-in user's cursor."""
+    if not _has_authenticated_session():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    raw_after = request.args.get('after')
+    try:
+        after_id = int(raw_after) if raw_after is not None else None
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid update cursor'}), 400
+    if after_id is not None and after_id < 0:
+        return jsonify({'success': False, 'error': 'Invalid update cursor'}), 400
+
+    current_user = session.get('user_name') or session.get('username') or 'System'
+    try:
+        with get_db() as (cursor, connection):
+            if after_id is None:
+                cursor.execute("SELECT COALESCE(MAX(id), 0) FROM activity_log")
+                latest_id = cursor.fetchone()[0]
+                return jsonify({
+                    'success': True,
+                    'latest_id': latest_id,
+                    'changed': False
+                })
+
+            cursor.execute("""
+                SELECT COALESCE(MAX(id), %s),
+                       COALESCE(BOOL_OR(user_name IS DISTINCT FROM %s), FALSE)
+                FROM activity_log
+                WHERE id > %s
+            """, (after_id, current_user, after_id))
+            latest_id, changed = cursor.fetchone()
+            return jsonify({
+                'success': True,
+                'latest_id': latest_id,
+                'changed': bool(changed)
+            })
+    except Exception:
+        app.logger.exception('Failed to check activity log for system updates')
+        return jsonify({
+            'success': False,
+            'error': 'Could not check for system updates'
+        }), 500
 
 
 def run1hardware(all_departments=False):
