@@ -6,7 +6,7 @@
 
     var CHECK_INTERVAL_MS = 30000;
     var ENDPOINT = '/api/system-updates';
-    var DEFAULT_MESSAGE = 'A teammate made changes. Keep working; this page will not reload automatically. Refresh after saving your work.';
+    var DEFAULT_MESSAGE = 'A teammate captured a new project. This page will not reload automatically. Refresh after saving your work.';
     var DISPLAY_CHANGE_LIMIT = 3;
     var MAX_PENDING_CHANGE_ROWS = 60;
     var initialScript = document.currentScript
@@ -40,17 +40,17 @@
             '.cl-system-update-notice{box-sizing:border-box;position:fixed;right:12px;bottom:12px;z-index:1040;',
             'width:min(440px,calc(100vw - 24px));padding:14px 16px;background:#fff;color:#152333;',
             'border:1px solid #d5e0e8;border-left:4px solid #1877c9;border-radius:12px;',
-            'box-shadow:0 10px 32px rgba(15,35,52,.2);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;}',
+            'box-shadow:0 10px 32px rgba(15,35,52,.2);font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;}',
             '.cl-system-update-notice[hidden]{display:none!important;}',
             '.cl-system-update-copy{margin:0 0 12px;}',
-            '.cl-system-update-title{display:block;margin:0 0 3px;font-size:15px;font-weight:700;}',
+            '.cl-system-update-title{display:block;margin:0 0 3px;font-size:14px;font-weight:700;}',
             '.cl-system-update-message{margin:0;color:#465766;}',
             '.cl-system-update-list{max-height:190px;margin:9px 0 0;padding:0;overflow:auto;',
             'list-style:none;border-top:1px solid #e6edf2;}',
             '.cl-system-update-item{padding:8px 0;border-bottom:1px solid #e6edf2;}',
             '.cl-system-update-item-summary{margin:0;font-weight:600;overflow-wrap:anywhere;}',
-            '.cl-system-update-item-meta{margin:3px 0 0;color:#617383;font-size:12px;}',
-            '.cl-system-update-more{margin:7px 0 0;color:#617383;font-size:12px;}',
+            '.cl-system-update-item-meta{margin:3px 0 0;color:#617383;font-size:11px;}',
+            '.cl-system-update-more{margin:7px 0 0;color:#617383;font-size:11px;}',
             '.cl-system-update-more:empty{display:none;}',
             '.cl-system-update-actions{display:flex;justify-content:flex-end;gap:8px;}',
             '.cl-system-update-actions button{min-height:36px;padding:7px 12px;border:1px solid transparent;',
@@ -162,7 +162,7 @@
         var refresh = document.createElement('button');
         refresh.type = 'button';
         refresh.className = 'cl-system-update-refresh';
-        refresh.textContent = 'Refresh when ready';
+        refresh.textContent = 'Refresh now';
         refresh.addEventListener('click', function () {
             if (document.querySelector('.cl-busy')) {
                 message.textContent = 'A save is still in progress. Wait for it to finish; this page will not reload automatically.';
@@ -179,7 +179,7 @@
         var later = document.createElement('button');
         later.type = 'button';
         later.className = 'cl-system-update-later';
-        later.textContent = 'Later';
+        later.textContent = 'Refresh later';
         later.addEventListener('click', hideNotice);
 
         copy.appendChild(title);

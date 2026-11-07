@@ -15427,7 +15427,10 @@ def get_system_update_status():
 
             cursor.execute("""
                 SELECT COALESCE(MAX(id), %s),
-                COUNT(*) FILTER (WHERE user_name IS DISTINCT FROM %s)
+                COUNT(*) FILTER (
+                    WHERE action_type = 'project_created'
+                    AND user_name IS DISTINCT FROM %s
+                )
                 FROM activity_log
                 WHERE id > %s
             """, (after_id, current_user, after_id))
@@ -15439,7 +15442,9 @@ def get_system_update_status():
                 cursor.execute("""
                     SELECT id, action_type, description, user_name, created_at
                     FROM activity_log
-                    WHERE id > %s AND user_name IS DISTINCT FROM %s
+                    WHERE id > %s
+                        AND action_type = 'project_created'
+                        AND user_name IS DISTINCT FROM %s
                     ORDER BY id DESC
                     LIMIT 5
                 """, (after_id, current_user))
