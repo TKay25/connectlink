@@ -12805,7 +12805,12 @@ async function fetchProductsFromAPI() {
             if (typeof window.applyLocalStockHolds === 'function') window.applyLocalStockHolds(products);
             currentAllProductsData = [...products]; // <-- Ensure export uses latest products
             renderProducts();
-            renderInventory();
+            // Only draw the Inventory table when it is the tab on screen: its rows
+            // are a hidden subtree otherwise, and building them cost every switch
+            // and every "To Furniture" / "To Hardware" a second full render.
+            if (typeof currentPage !== 'undefined' && currentPage === 'inventory') {
+                renderInventory();
+            }
             updateInventoryMetrics(); // Add this line
             populateCategoryDropdown(); // Add this line
             return;
@@ -17049,17 +17054,32 @@ async function fetchTransactionsData() {
         } catch (error) { console.error('Error fetching categories:', error); }
     }
     
-    async function fetchDashboardStats() {
+    // `opts.includeProfit === false` asks for the header figures alone. The
+    // all-time profit total is the slowest read the server does, and neither a
+    // department switch nor a product move can change it -- so those two paths
+    // skip it and keep the figure already in hand (the Add Stock modal's
+    // "pay from profit" depends on it, so it must never be blanked).
+    async function fetchDashboardStats(opts) {
+        const wantProfit = !(opts && opts.includeProfit === false);
         try {
-            const statsResponse = await fetch(`${API_BASE}/api/dashboard/stats`, { credentials: 'include' });
+            // The two reads are independent (both already scoped to the department
+            // in view by the session), so they go together: the cashier cards no
+            // longer wait for the sales totals to arrive first.
+            const [statsResponse] = await Promise.all([
+                fetch(`${API_BASE}/api/dashboard/stats` + (wantProfit ? '' : '?include_profit=0'),
+                      { credentials: 'include' }),
+                loadTodayByCashier()
+            ]);
             const statsData = await statsResponse.json();
             if (statsData.success) {
                 transactionsData.todaySales = statsData.stats.today_sales;
                 transactionsData.itemsSold = statsData.stats.items_sold;
-                // Track total profit from all time
-                currentTotalProfit = statsData.stats.total_profit || 0;
+                // Track total profit from all time. Only when this read actually
+                // computed it -- a skipped figure is unknown, not zero.
+                if (statsData.stats.total_profit !== undefined) {
+                    currentTotalProfit = statsData.stats.total_profit || 0;
+                }
             }
-            await loadTodayByCashier();
             renderPOSHeaderStats();
         } catch (error) { console.error('Error fetching stats:', error); }
     }
@@ -23242,20 +23262,18 @@ async function switchDepartment(dept) {
         // Mark the switch first: the catalogue read below names the department
         // in its URL (a cache-buster), and that name must be the one just chosen.
         applyDepartmentState(switchResult.department);
-        await fetchProductsFromAPI();
+        // The catalogue and the header figures are two INDEPENDENT reads, both
+        // taken after the session now holds the new department -- so they run
+        // together instead of one after the other. Fetching the catalogue draws
+        // the grid and the inventory table itself, so the open tab is only
+        // asked to re-read what that draw did NOT cover (reports, dispatch...).
+        await Promise.all([
+            fetchProductsFromAPI(),
+            (typeof fetchDashboardStats === 'function')
+                ? fetchDashboardStats({ includeProfit: false }) : null
+        ]);
         try { localStorage.removeItem('pos_api_cache_v1'); } catch (e) {}
-        // Redraw the open tab from the catalogue already in hand.
-        redrawActiveTab();
-        // Whatever tab is open, its data belongs to the departments now in view, so
-        // re-read it rather than leave the old department's figures on screen. The
-        // header cards follow the same rule. Tabs that are not open re-read on their
-        // own when navigated to, so nothing stale can survive the switch.
-        redrawActiveTab();
-        // The two header pills and the cashier cards are today's takings for the
-        // department in view, so they have to be re-read too -- otherwise the till
-        // keeps showing the shelf it just left while the cards beside them show the
-        // new one. fetchDashboardStats() refreshes both.
-        if (typeof fetchDashboardStats === 'function') await fetchDashboardStats();
+        redrawActiveTab({ skipCatalogue: true });
         if (typeof showToast === 'function') {
             showToast('Now viewing ' + (switchResult.label || dept), 'success');
         }
@@ -23314,10 +23332,16 @@ function renderDepartmentScopeBanner() {
 window.renderDepartmentScopeBanner = renderDepartmentScopeBanner;
 
 // Redraw whichever tab is open, using state already loaded.
-function redrawActiveTab() {
-    if (typeof renderProducts === 'function') renderProducts();
-    if (typeof updateInventoryMetrics === 'function') updateInventoryMetrics();
-    if (currentPage === 'inventory' && typeof renderInventory === 'function') renderInventory();
+// `skipCatalogue` is for callers that have just re-read the catalogue: that read
+// already drew the product grid, the inventory table and the metrics, so drawing
+// them a second time only re-builds the same DOM (a visible pause on a big
+// catalogue). The report tabs are still re-read from the server.
+function redrawActiveTab(opts) {
+    if (!(opts && opts.skipCatalogue)) {
+        if (typeof renderProducts === 'function') renderProducts();
+        if (typeof updateInventoryMetrics === 'function') updateInventoryMetrics();
+        if (currentPage === 'inventory' && typeof renderInventory === 'function') renderInventory();
+    }
     if (currentPage === 'dispatch' && typeof loadDispatchAnalytics === 'function') loadDispatchAnalytics();
     if (currentPage === 'sales' && typeof loadSalesReport === 'function') loadSalesReport();
     if (currentPage === 'transactions' && typeof fetchTransactionsData === 'function') fetchTransactionsData();
@@ -23367,11 +23391,17 @@ async function moveProductDepartment(productId) {
             return;
         }
         if (typeof showToast === 'function') showToast(data.message || 'Product moved.', 'success');
-        await fetchProductsFromAPI();
-        redrawActiveTab();
         // A move relabels the product's past sales company-wide, so today's
-        // per-shelf totals change the moment it lands. Re-read the header pills.
-        if (typeof fetchDashboardStats === 'function') await fetchDashboardStats();
+        // per-shelf totals change the moment it lands -- but the all-time profit
+        // total does not, so it is not re-read here. The catalogue and the header
+        // pills are two independent reads and go out together; the catalogue
+        // fetch draws the grid and the inventory table itself.
+        await Promise.all([
+            fetchProductsFromAPI(),
+            (typeof fetchDashboardStats === 'function')
+                ? fetchDashboardStats({ includeProfit: false }) : null
+        ]);
+        redrawActiveTab({ skipCatalogue: true });
     } catch (e) {
         if (typeof showToast === 'function') showToast('Connection error. Please try again.', 'error');
     } finally {

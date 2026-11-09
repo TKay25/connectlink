@@ -109,9 +109,13 @@ class FakeCursor:
         elif 'INSERT INTO product_stock' in q2:
             self.stock[p[2]] = self.stock.get(p[2], 0) + p[3]
         elif 'UPDATE stock_lots SET department' in q2:
+            # The move re-files every open layer of the product in ONE statement
+            # now (to_department, product_id, branch_id, default, from_department)
+            # rather than one UPDATE per layer id.
+            to_dept, _pid, _bid, _default, from_dept = p
             for l in self.lots:
-                if l['id'] == p[1]:
-                    l['dept'] = p[0]
+                if l['dept'] == from_dept and l['qty'] > 0:
+                    l['dept'] = to_dept
         elif 'INSERT INTO product_departments' in q2:
             self.dept_row = p[2]
         else:
@@ -556,6 +560,10 @@ class _BranchesCursor:
 
 
 cw = {'DEPARTMENTS': ('hardware', 'furniture'), 'DEFAULT_DEPARTMENT': 'hardware'}
+# products.stock is the company total and a move never changes it; the refresh is
+# stubbed so the check can count it (the move must refresh it ONCE, not per branch).
+_total_refreshes = []
+cw['recalc_product_total_stock'] = lambda cursor, pid: _total_refreshes.append(pid)
 exec(compile(src[src.index('def branches_holding_product('):
                  src.index('def move_product_department_everywhere(')],
             'cw_helpers', 'exec'), cw)
@@ -588,9 +596,12 @@ check('the report totals what moved', res['branches'] == 3 and res['quantity'] =
       and res['sales_relabelled'] == 3, res)
 check('...and names how many branches actually changed',
       res['branches_moved'] == 3, res['branches_moved'])
+check('the company stock total is refreshed ONCE, not once per branch',
+      _total_refreshes == [55], _total_refreshes)
 
 # a product already filed in the target department is a no-op everywhere
 calls.clear()
+_total_refreshes.clear()
 cw['move_product_department'] = lambda cursor, pid, bid, dept, **kw: (
     calls.append((pid, bid, dept)) or
     {'from': dept, 'to': dept, 'quantity': 0, 'cost': 0.0,

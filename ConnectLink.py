@@ -3430,6 +3430,29 @@ def ensure_branches_schema(cursor, connection):
         """)
         connection.commit()
 
+        # ---- Read paths the till waits on -----------------------------------
+        # The POS header ("Today's Sales" / "Items Sold" / the cashier cards) and
+        # the department filter both reach into the sale LINES once per
+        # transaction (see department_takings_sql), and the department move
+        # re-files past lines by product. None of those columns was indexed, so
+        # every one of those reads scanned all the sale lines and stock
+        # movements the shops have ever booked -- the cost grew with trading
+        # history, which is why the till got slower every month and why "To
+        # Furniture" / "To Hardware" felt worst. Indexed so both are index reads.
+        for table, cols, name in (
+                ('transaction_items', 'transaction_id, department',
+                 'idx_transaction_items_txn'),
+                ('transaction_items', 'product_id', 'idx_transaction_items_product'),
+                ('stock_reductions', 'product_id', 'idx_stock_reductions_product'),
+                ('transactions', 'branch_id, created_at', 'idx_transactions_branch_date')):
+            try:
+                cursor.execute(
+                    f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({cols})")
+                connection.commit()
+            except Exception as idx_err:
+                connection.rollback()
+                print(f"Note: could not create {name}: {idx_err}")
+
         # ---- Bulk stock upload jobs -----------------------------------------
         # Every Excel upload is recorded as a JOB so it can be audited and, while
         # its stock is still untouched, REVERTED as a unit. The per-item rows
@@ -4008,7 +4031,7 @@ def relabel_product_sales_department(cursor, product_id, branch_id, department):
 
 
 def move_product_department(cursor, product_id, branch_id, to_department, user_id=0,
-                            user_name='System', notes=''):
+                            user_name='System', notes='', recalc_total=True):
     """Move one product's stock from its department to another, inside one branch.
 
     This is the ONLY way a product changes department, and it deliberately moves
@@ -4090,11 +4113,18 @@ def move_product_department(cursor, product_id, branch_id, to_department, user_i
                     updated_at = CURRENT_TIMESTAMP
         """, (product_id, branch_id, to_department, quantity))
 
-        for lot_id, remaining, unit_cost in layers:
-            # The layer moves house; its quantity and cost do not change.
-            cursor.execute("""
-                UPDATE stock_lots SET department = %s WHERE id = %s
-            """, (to_department, lot_id))
+        # The layers move house in ONE statement: their quantity and cost do not
+        # change, only which department's pool holds them. Moving them one
+        # UPDATE per layer made "To Furniture" wait on the database once per
+        # receipt ever booked for the product -- the slowest part of the button,
+        # and unbounded on a well-stocked item. The WHERE clause selects exactly
+        # the layers read above (this department, still holding stock).
+        cursor.execute("""
+            UPDATE stock_lots SET department = %s
+            WHERE product_id = %s AND branch_id = %s
+              AND COALESCE(department, %s) = %s
+              AND quantity_remaining > 0
+        """, (to_department, product_id, branch_id, DEFAULT_DEPARTMENT, from_department))
 
     # Record the department on the product/branch pair.
     cursor.execute("""
@@ -4117,7 +4147,11 @@ def move_product_department(cursor, product_id, branch_id, to_department, user_i
 
     # The two departments now hold different quantities, but the BRANCH total is
     # unchanged. Keep the catalogue total in step with that (unchanged) sum.
-    recalc_product_total_stock(cursor, product_id)
+    # Callers that move the same product across several branches pass
+    # recalc_total=False and refresh it once, because products.stock is the
+    # COMPANY total: it is the same figure for every branch.
+    if recalc_total:
+        recalc_product_total_stock(cursor, product_id)
 
     return {'from': from_department, 'to': to_department,
             'quantity': quantity, 'cost': round(moved_cost, 2),
@@ -4174,10 +4208,12 @@ def move_product_department_everywhere(cursor, product_id, to_department, user_i
         raise ValueError('A product is required.')
 
     details = []
-    for branch_id in branches_holding_product(cursor, product_id, include_branch_id):
+    branches = branches_holding_product(cursor, product_id, include_branch_id)
+    for branch_id in branches:
         result = move_product_department(
             cursor, product_id, branch_id, to_department,
-            user_id=user_id, user_name=user_name, notes=notes) or {}
+            user_id=user_id, user_name=user_name, notes=notes,
+            recalc_total=False) or {}
         details.append({
             'branch_id': branch_id,
             'from': result.get('from'),
@@ -4187,6 +4223,12 @@ def move_product_department_everywhere(cursor, product_id, to_department, user_i
             'sales_relabelled': result.get('sales_relabelled', 0),
             'unchanged': bool(result.get('unchanged')),
         })
+
+    # products.stock is the company-wide total and a move never changes it, so
+    # it is refreshed ONCE for the item rather than once per branch -- one less
+    # remote statement for every shop the button touches.
+    if branches:
+        recalc_product_total_stock(cursor, product_id)
 
     moved_branches = [d for d in details if not d['unchanged'] and d['from'] != to_department]
     return {
@@ -24697,7 +24739,12 @@ def get_dashboard_stats():
             COALESCE(SUM({revenue_sql}), 0) as today_sales,
             COALESCE(SUM({items_sql}), 0) as items_sold
         FROM transactions
-        WHERE DATE(created_at) = CURRENT_DATE
+        -- Written as a half-open RANGE rather than DATE(created_at) = CURRENT_DATE:
+        -- a function wrapped round the column stops Postgres using the
+        -- (branch_id, created_at) index, so it read every sale this shop has ever
+        -- made on each department switch. Both forms mean the same day.
+        WHERE created_at >= CURRENT_DATE
+        AND created_at < CURRENT_DATE + 1
         AND status = 'completed'
         AND voided = FALSE
         {takings_where}
@@ -24727,38 +24774,45 @@ def get_dashboard_stats():
     # same product in at a new price can never rewrite an already-taken margin.
     # COALESCE keeps sales rung before FIFO costing landed working exactly as
     # they did before.
-    profit_query = """
-        SELECT COALESCE(SUM(
-            ti.quantity * (ti.price_at_time - COALESCE(ti.cost_at_time, p.buy_price))
-        ), 0) as total_profit
-        FROM transaction_items ti
-        JOIN products p ON ti.product_id = p.id
-        JOIN transactions t ON ti.transaction_id = t.id
-        WHERE t.status = 'completed'
-          AND t.voided = FALSE
-    """
-    profit_branch_where, profit_params = branch_read_clause('t.branch_id')
-    profit_query = profit_query + profit_branch_where
-    profit_result = execute_query(profit_query, tuple(profit_params) if profit_params else None, fetch_one=True)
-    total_profit = float(profit_result[0]) if profit_result else 0
-    
-    return jsonify({
-        'success': True,
-        'stats': {
-            'today_sales': float(today_result[0]) if today_result else 0,
-            'items_sold': today_result[1] if today_result else 0,
-            'low_stock_count': low_stock_result[0] if low_stock_result else 0,
-            'total_products': total_products_result[0] if total_products_result else 0,
-            'total_profit': total_profit  # Add this field
-        }
-    })
+    #
+    # This is an ALL-TIME aggregate of every sale line, so it is the slowest part
+    # of this endpoint and the only part that grows with trading history. The
+    # till only needs it for the "pay from profit" figure in Add Stock, which a
+    # department switch or a product move cannot change (neither filter is
+    # applied to the sum). Those paths therefore ask for the header figures
+    # alone with include_profit=0 and keep the figure they already hold.
+    include_profit = str(request.args.get('include_profit') or '1').lower() not in ('0', 'false', 'no')
+    stats = {
+        'today_sales': float(today_result[0]) if today_result else 0,
+        'items_sold': today_result[1] if today_result else 0,
+        'low_stock_count': low_stock_result[0] if low_stock_result else 0,
+        'total_products': total_products_result[0] if total_products_result else 0,
+    }
+    if include_profit:
+        profit_query = """
+            SELECT COALESCE(SUM(
+                ti.quantity * (ti.price_at_time - COALESCE(ti.cost_at_time, p.buy_price))
+            ), 0) as total_profit
+            FROM transaction_items ti
+            JOIN products p ON ti.product_id = p.id
+            JOIN transactions t ON ti.transaction_id = t.id
+            WHERE t.status = 'completed'
+              AND t.voided = FALSE
+        """
+        profit_branch_where, profit_params = branch_read_clause('t.branch_id')
+        profit_query = profit_query + profit_branch_where
+        profit_result = execute_query(profit_query, tuple(profit_params) if profit_params else None, fetch_one=True)
+        stats['total_profit'] = float(profit_result[0]) if profit_result else 0
+
+    return jsonify({'success': True, 'stats': stats})
 
 
 @app.route('/api/dashboard/today-by-cashier', methods=['GET'])
 @login_required
 def today_by_cashier():
     """Today's sales grouped by cashier (lightweight aggregate for the POS header).
-    Mirrors get_dashboard_stats() semantics (DATE(created_at) = CURRENT_DATE, status='completed')."""
+    Mirrors get_dashboard_stats() semantics (the same half-open day range and
+    status='completed')."""
     try:
         from collections import OrderedDict
         (revenue_sql, revenue_params), (items_sql, items_params), (takings_where, takings_params) = \
@@ -24770,7 +24824,11 @@ def today_by_cashier():
                    COALESCE(SUM({items_sql}), 0) AS items_sold
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
-            WHERE DATE(t.created_at) = CURRENT_DATE
+            -- Half-open day range, not DATE(t.created_at): see the note in
+            -- get_dashboard_stats() -- this is the same day, said in a way the
+            -- (branch_id, created_at) index can answer.
+            WHERE t.created_at >= CURRENT_DATE
+              AND t.created_at < CURRENT_DATE + 1
               AND t.status = 'completed'
               AND t.voided = FALSE
               -- A sale belongs to the department its LINES belong to: the header
@@ -24793,7 +24851,8 @@ def today_by_cashier():
                    COALESCE(SUM({revenue_sql}), 0) AS total
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
-            WHERE DATE(t.created_at) = CURRENT_DATE
+            WHERE t.created_at >= CURRENT_DATE
+              AND t.created_at < CURRENT_DATE + 1
               AND t.status = 'completed'
               AND t.voided = FALSE
               {takings_where}

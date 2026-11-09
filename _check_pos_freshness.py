@@ -273,7 +273,9 @@ check('the probe only writes the product once the server has answered',
 
 
 # ------------------------------- 4. a failed load is announced, not hidden
-fetch_fn = NEW[NEW.index('async function fetchProductsFromAPI'):][:4200]
+# The whole of fetchProductsFromAPI() (it is ~4.5k characters now that the
+# Inventory table is only drawn when its tab is on screen).
+fetch_fn = NEW[NEW.index('async function fetchProductsFromAPI'):][:4700]
 check('a non-OK catalogue answer is handled, not ignored',
       'if (!productsResponse.ok)' in fetch_fn)
 check('a non-OK answer reports the figures as not live',
