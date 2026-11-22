@@ -6504,7 +6504,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
             <div id="posReadOnlyBanner"
                  style="display:none;align-items:center;gap:8px;margin:8px 12px 0;padding:8px 12px;border-radius:8px;background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;font-size:0.7rem;">
                 <i class="fas fa-lock"></i>
-                <span><strong>All Branches &mdash; read-only.</strong> Sales and stock changes are disabled here. Use the branch menu to pick a shop.</span>
+                <span><strong>All Branches &mdash; read-only.</strong> Sales, layby instalments and stock changes are disabled here. Use the branch menu to pick a shop.</span>
             </div>
 
             <!-- Shown when this session has not chosen a branch yet. Until it does the
@@ -6534,6 +6534,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <div id="branchSwitchPurpose" class="alert alert-warning py-2 small mb-2" style="display:none;"></div>
                             <div class="mb-2">
                                 <label class="form-label fw-bold">Branch</label>
                                 <select class="form-select form-select-sm" id="branchSwitchSelect" onchange="syncBranchSwitchCodeField()"></select>
@@ -15931,6 +15932,18 @@ async function fetchTransactionsData() {
         if (errEl) { errEl.style.display = 'none'; errEl.innerText = ''; }
         if (codeEl) codeEl.value = '';
         if (sel) sel.innerHTML = '<option value="">Loading...</option>';
+        // Optional explanation of WHY the switch is being asked for (e.g. the
+        // till is on All Branches and an instalment must go to its own shop).
+        const purposeEl = document.getElementById('branchSwitchPurpose');
+        if (purposeEl) {
+            if (opts && opts.purpose) {
+                purposeEl.innerHTML = opts.purpose;
+                purposeEl.style.display = 'block';
+            } else {
+                purposeEl.innerHTML = '';
+                purposeEl.style.display = 'none';
+            }
+        }
         // Nothing is known about the branches until the list arrives, so hide the
         // code box rather than show an empty one that the next step may remove.
         const codeGroup = document.getElementById('branchSwitchCodeGroup');
@@ -15967,7 +15980,12 @@ async function fetchTransactionsData() {
                     html += `<option value="${data.all_branches.id}">${escapeHtml(data.all_branches.name)}</option>`;
                 }
                 sel.innerHTML = html || '<option value="">No branches available</option>';
-                if (posBranch && posBranch.id !== null && posBranch.id !== undefined) {
+                // A caller that names the branch (a layby's own shop) gets it
+                // preselected; otherwise the till stays where it already is.
+                if (opts && opts.branchId !== null && opts.branchId !== undefined) {
+                    sel.value = String(opts.branchId);
+                }
+                if (posBranch && posBranch.id !== null && posBranch.id !== undefined && !sel.value) {
                     sel.value = String(posBranch.id);
                 }
                 syncBranchSwitchCodeField();
@@ -16047,6 +16065,12 @@ async function fetchTransactionsData() {
             if (branchChoiceRequired) { window.location.reload(); return; }
 
             await refreshBranchFromServer();
+
+            // The Layby tab lists the chosen shop's agreements and its action
+            // buttons follow the read-only state, so redraw it on the new branch.
+            if (typeof window.refreshLaybyTabIfVisible === 'function') {
+                window.refreshLaybyTabIfVisible();
+            }
 
             const modalEl = document.getElementById('branchSwitchModal');
             if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
@@ -24409,6 +24433,11 @@ function setupEventListeners() {
                           '<i class="fas fa-coins me-1"></i>Record instalment</button>' +
                       '<button class="btn btn-outline-danger btn-sm me-1" onclick="openLaybyCancelModal(' + l.id + ')">' +
                           '<i class="fas fa-ban me-1"></i>Cancel</button>';
+        } else if (readonlyView() && l.status === 'active') {
+            // All Branches cannot take money, so instead of hiding the button
+            // (which just looked broken) offer the switch to the layby's shop.
+            actions += '<button class="btn btn-warning btn-sm me-1" onclick="switchToBranchForLayby(' + l.id + ')">' +
+                          '<i class="fas fa-coins me-1"></i>Record instalment</button>';
         }
         // The agreement is the customer's copy of what was reserved and what is
         // owed, so it can be printed at any point in the layby's life.
@@ -24938,6 +24967,26 @@ function setupEventListeners() {
         document.getElementById('laybyPayNotes').value = '';
         showError('laybyPayError', '');
         modalOf('laybyPaymentModal').show();
+    };
+
+    // All Branches is a read-only consolidated view, so an instalment cannot be
+    // taken from it. Instead of hiding the button, ask for the shop that owns
+    // the layby (its access code still applies) so the payment can be recorded
+    // against the right branch's books.
+    window.switchToBranchForLayby = function (id) {
+        var l = laybyById[id];
+        if (!l) { showToast('That layby is no longer loaded.', 'error'); return; }
+        if (typeof window.openBranchSwitchModal !== 'function') {
+            showToast('All Branches is read-only. Pick a branch to record the instalment.', 'error');
+            return;
+        }
+        window.openBranchSwitchModal({
+            branchId: l.branch_id,
+            purpose: 'Recording an instalment for <strong>' + text(l.reference) + '</strong> (' +
+                     text(l.customer_name) + ') needs <strong>' +
+                     text(l.branch_name || 'its branch') +
+                     '</strong>. All Branches is read-only, so switch to that branch first.'
+        });
     };
 
     window.fetchLaybys = function () {
