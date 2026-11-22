@@ -7,6 +7,7 @@ PASS  Furniture shows only its own lines  -> {'sales': 1190.75, 'items': 5}
 PASS  a mixed basket is SPLIT, not charged in full to each shelf  -> hardware={'sales': 1100.0, 'items': 3} furniture={'sales': 1190.75, 'items': 5}
 PASS  Hardware + Furniture is the shop total (the itemless receipt is All-only)  -> {'all': {'sales': 2315.75, 'items': 8}, 'hardware': {'sales': 1100.0, 'items': 3}, 'furniture': {'sales': 1190.75, 'items': 5}}
 PASS  the itemless receipt still shows on All, with no phantom items  -> {'sales': 2315.75, 'items': 8}
+PASS  a PAID-OFF layby receipt never lands in the sales figures as a whole sale  -> {'all': {'sales': 2315.75, 'items': 8}, 'hardware': {'sales': 1100.0, 'items': 3}}
 PASS  all: the cashier card equals the header pill  -> {'card': (2315.75, 8), 'pill': {'sales': 2315.75, 'items': 8}}
 PASS  hardware: the cashier card equals the header pill  -> {'card': (1100.0, 3), 'pill': {'sales': 1100.0, 'items': 3}}
 PASS  furniture: the cashier card equals the header pill  -> {'card': (1190.75, 5), 'pill': {'sales': 1190.75, 'items': 5}}

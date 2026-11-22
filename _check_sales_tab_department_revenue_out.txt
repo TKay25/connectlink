@@ -1,9 +1,13 @@
 PASS  the Sales tab no longer sums the whole receipt for a department view
 PASS  the Sales tab prices each sale from its own LINES
 PASS  a receipt with no lines still counts at its total
+PASS  layby money is recognised from the collections endpoint
+PASS  a completed layby is never counted again at its receipt total
 PASS  a stand-in POS server is up  -> http://127.0.0.1:8802/pos-system.html
-PASS  All view: the tab reports the whole shop (mixed basket once)  -> {'sales': 'USD 1,290.75', 'items': '6', 'profit': 'USD 530.75', 'tx': '2'}
-PASS  Hardware view: only the Hardware lines of the mixed basket count  -> {'sales': 'USD 100.00', 'items': '1', 'profit': 'USD 40.00', 'tx': '1'}
-PASS  Furniture view: its own lines, and the furniture-only sale  -> {'sales': 'USD 1,190.75', 'items': '5', 'profit': 'USD 490.75', 'tx': '2'}
-PASS  the layby deposit never reaches the sales report  -> USD 1,290.75
+PASS  All view: completed sales plus the layby money received  -> {'sales': 'USD 1,430.75', 'items': '6', 'profit': 'USD 580.75', 'tx': '2', 'avg': 'USD 645.38'}
+PASS  Hardware view: its sale lines plus its layby collections  -> {'sales': 'USD 240.00', 'items': '1', 'profit': 'USD 90.00', 'tx': '1', 'avg': 'USD 100.00'}
+PASS  Furniture view: its own lines, and no Hardware layby money  -> {'sales': 'USD 1,190.75', 'items': '5', 'profit': 'USD 490.75', 'tx': '2', 'avg': 'USD 595.38'}
+PASS  a completed layby is not added again at its receipt total  -> USD 1,430.75
+PASS  layby money adds revenue without inventing sold units or orders  -> {'sales': 'USD 1,430.75', 'items': '6', 'profit': 'USD 580.75', 'tx': '2', 'avg': 'USD 645.38'}
+PASS  the average sale stays a sale, not an instalment  -> USD 645.38
 PASS  no page script error was thrown  -> clean

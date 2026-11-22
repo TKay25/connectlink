@@ -4,16 +4,17 @@
   "module": "CheckSalesTabDepartmentRevenue",
   "file": "_check_sales_tab_department_revenue.py",
   "purpose": "Prove the Sales tab reports each shelf's OWN money.",
-  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 125",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 158",
   "entry_flows": [
     "Handler.log_message() → environ.pop, path.dirname, path.abspath, path.join"
   ],
   "public_api": [
-    "class Handler(SimpleHTTPRequestHandler)  # line 125",
+    "class Handler(SimpleHTTPRequestHandler)  # line 158",
     "  Handler.log_message()",
     "  Handler.do_GET()",
     "  Handler.do_POST()",
     "check(name, ok, detail = '')",
+    "collections_for(dept)",
     "transactions_for(dept)",
     "read_after(dept)"
   ],
@@ -39,6 +40,6 @@
   "file_mtime": 1793194803830.742,
   "file_size": 14250,
   "file_birthtime": 1793194803827.9602,
-  "generated_at": "2026-11-09T11:54:50.974137Z",
+  "generated_at": "2026-11-22T07:38:11.896590Z",
   "stale": false
 }

@@ -104,9 +104,10 @@ def fake_execute_query(sql, params=None, fetch_all=False, fetch_one=False, commi
             (_dt.date(2026, 9, 21), 900.00, 400.00),
         ]
     if 'TRANSACTION_COUNT' in flat and 'BRANCH_NAME' in flat:
+        # branch_id, branch_name, department, transactions, items, revenue, cogs
         return [
-            ('Shurugwi', 'hardware', 10, 25, 5000.00, 3000.00),
-            ('Shurugwi', 'furniture', 2, 3, 1000.00, 900.00),
+            (1, 'Shurugwi', 'hardware', 10, 25, 5000.00, 3000.00),
+            (1, 'Shurugwi', 'furniture', 2, 3, 1000.00, 900.00),
         ]
     return [] if fetch_all else (None if fetch_one else True)
 
@@ -392,12 +393,17 @@ check('summary API reports success', data.get('success') is True, data.get('erro
 summary_rows = data.get('rows') or []
 check('summary has one row per branch+department', len(summary_rows) == 2, len(summary_rows))
 if len(summary_rows) == 2:
+    # Read the rows BY DEPARTMENT: the endpoint orders each branch's shelves
+    # alphabetically (as its SQL always has), and the report does not depend on
+    # which shelf happens to be listed first.
+    by_dept = {r['department_label']: r for r in summary_rows}
     check('department labels are Hardware / Furniture',
-          [r['department_label'] for r in summary_rows] == ['Hardware', 'Furniture'],
+          sorted(by_dept) == ['Furniture', 'Hardware'],
           [r['department_label'] for r in summary_rows])
-    check('row revenue/profit', near(summary_rows[0]['revenue'], 5000.0)
-          and near(summary_rows[0]['profit'], 2000.0),
-          f"{summary_rows[0]['revenue']} / {summary_rows[0]['profit']}")
+    hw_row = by_dept.get('Hardware') or {}
+    check('row revenue/profit', near(hw_row.get('revenue'), 5000.0)
+          and near(hw_row.get('profit'), 2000.0),
+          f"{hw_row.get('revenue')} / {hw_row.get('profit')}")
 totals_api = data.get('totals') or {}
 check('totals revenue 6000', near(totals_api.get('revenue'), 6000.0), totals_api.get('revenue'))
 check('totals profit 2100', near(totals_api.get('profit'), 2100.0), totals_api.get('profit'))
@@ -450,6 +456,20 @@ check('reinvestment stays department-scoped for the till',
 resp, sql = read_with_session('/api/stock-additions?all_departments=1')
 check('the sales report counts reinvestment in every department',
       resp.status_code == 200 and 'sa.department' not in sql, resp.status_code)
+
+# The summary behind the PDF is a whole-shop statement, so its layby money must
+# not be narrowed to the shelf the till happens to be on: that would drop the
+# other department's deposits and instalments from the report.
+resp, sql = read_with_session('/api/transactions/branch-department-summary'
+                              '?start=2026-09-01&end=2026-09-30&bucket=week')
+check('the PDF summary is built without a department filter',
+      resp.status_code == 200 and 'transaction_items _d' not in sql, resp.status_code)
+with open(ConnectLink.__file__, encoding='utf-8') as _fh:
+    _summary_src = _fh.read().split('def get_branch_department_summary(')[1]
+    _summary_src = _summary_src.split('\n@app.route')[0]
+check('the PDF summary recognises layby money for EVERY department',
+      'departments=list(DEPARTMENTS)' in _summary_src,
+      'get_branch_department_summary()')
 
 fails = [r for r in RESULTS if r.startswith('FAIL')]
 print('\n' + '=' * 70)

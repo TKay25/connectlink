@@ -82,10 +82,23 @@ def fake_db():
     yield Cur(), Conn()
 
 
+LAYBY_ROWS = []
+
+
 def fake_execute_query(sql, params=None, fetch_all=False, fetch_one=False, commit=False):
     flat = ' '.join(str(sql).split())
     if fetch_all and 'scoped_total' in flat:
         return list(SALES_ROWS)
+    if fetch_all and 'payment_count' in flat:
+        # The layby query: rows in its own SELECT order, narrowed to the
+        # departments the request is looking at. The FIRST list parameter is the
+        # department list (a later one is the branch).
+        wanted = []
+        for p in (params or ()):
+            if isinstance(p, (list, tuple)):
+                wanted = list(p)
+                break
+        return [r for r in LAYBY_ROWS if not wanted or r[4] in wanted]
     if fetch_all:
         return []
     if fetch_one:
@@ -180,6 +193,38 @@ check('the Furniture day-end counts the Furniture line',
       data.get('grand_total') == 200.0, data.get('grand_total'))
 check('and calls itself Furniture',
       data.get('department_label') == 'Furniture', data.get('department_label'))
+
+# ---------- Layby money received today -----------------------
+# A hardware layby deposit taken in cash today.
+# Columns: paid_at, day, branch_id, branch_name, department, cashier, method,
+# revenue, cogs, collected, refunded, payment_count.
+LAYBY_ROWS[:] = [
+    ('2026-11-02T09:00:00', '2026-11-02', 1, 'Shurugwi', 'hardware', 'Mrs G',
+     'cash', 40.0, 30.0, 40.0, 0.0, 1),
+]
+SALES_ROWS[:] = [MIXED, HARDWARE_ONLY]
+status, data = day_end('hardware')
+check('a layby instalment taken today is in the day\'s takings',
+      data.get('grand_total') == 290.0, data.get('grand_total'))
+check('and in the method bucket it was paid by (cash in the drawer)',
+      (data.get('payment_methods') or {}).get('cash') == 140.0, data.get('payment_methods'))
+check('the layby figure is a memo of that total, net of refunds',
+      data.get('layby_total') == 40.0, data.get('layby_total'))
+check('the cashier total carries it too, so the tabs add up to the total',
+      ((data.get('cashiers') or [{}])[0]).get('total') == 290.0, data.get('cashiers'))
+check('the branch figure carries it too',
+      ((data.get('branches') or [{}])[0]).get('total') == 290.0, data.get('branches'))
+check('a layby payment is not listed as a sale row',
+      all(r.get('transaction_number') != 'T9' for r in rows_of(data)),
+      [r.get('transaction_number') for r in rows_of(data)])
+
+SALES_ROWS[:] = [FURNITURE_ONLY_MIXED]
+status, data = day_end('furniture')
+check('the other shelf does not carry Hardware layby money',
+      data.get('grand_total') == 200.0 and (data.get('payment_methods') or {}).get('cash') == 200.0,
+      (data.get('grand_total'), data.get('payment_methods')))
+check('and its memo is empty', data.get('layby_total') == 0.0, data.get('layby_total'))
+LAYBY_ROWS[:] = []
 
 # ---------- All: whole receipts, and a sale is never split here -------------
 SALES_ROWS[:] = [WHOLE_MIXED, HARDWARE_ONLY]

@@ -36,7 +36,7 @@
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), OUT = os.path.join(ROOT, '_check_day_end_department_totals_out.txt'), RESULTS = [], SALES_ROWS = [], MIXED = (1, 'T1', 1, 'Mrs G', 300.0, 'cash', dt.datetime(2026, 11, 2, 10, 0), [{'product_name': 'Cement', 'quantity': 1, 'price': 100.0, 'cost_at_time': 60.0}], 100.0, 1, 'Shurugwi'), HARDWARE_ONLY = (2, 'T2', 1, 'Mrs G', 150.0, 'card', dt.datetime(2026, 11, 2, 11, 0), [{'product_name': 'Nails', 'quantity': 3, 'price': 50.0, 'cost_at_time': 30.0}], 150.0, 1, 'Shurugwi')",
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), OUT = os.path.join(ROOT, '_check_day_end_department_totals_out.txt'), RESULTS = [], SALES_ROWS = [], LAYBY_ROWS = [], MIXED = (1, 'T1', 1, 'Mrs G', 300.0, 'cash', dt.datetime(2026, 11, 2, 10, 0), [{'product_name': 'Cement', 'quantity': 1, 'price': 100.0, 'cost_at_time': 60.0}], 100.0, 1, 'Shurugwi')",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -46,6 +46,6 @@
   "file_mtime": 1793624991701.6877,
   "file_size": 7908,
   "file_birthtime": 1793624991691.4397,
-  "generated_at": "2026-11-02T13:09:55.605274Z",
+  "generated_at": "2026-11-22T07:56:41.041634Z",
   "stale": false
 }

@@ -889,8 +889,9 @@ FIFO layers they consumed.
 The form also carries a **Sale date**, exactly like Cash / Card / Transfer: it defaults to
 today and cannot be in the future, but may be moved to an earlier day. That day stamps
 the agreement, the transaction, the stock reservation and the deposit, so a layby keyed
-in late is reported on the day it was opened — and a layby queued offline keeps that day
-when it syncs later.
+in late has its deposit reported on the day it was opened — and a layby queued offline
+keeps that day when it syncs later. Later instalments are reported on the days they are
+actually received.
 
 How it hits the books:
 
@@ -898,12 +899,20 @@ How it hits the books:
   "sales today" figure ignores — the money has not been received.
 * **Only instalments actually received are counted, on the day they are received.**
   They are recorded on the **Layby** tab in the sidebar (active/paid-off/cancelled
-  filter, balance, plan state and payment history per layby).
+  filter, balance, plan state and payment history per layby). The Sales & Profit report
+  (tab, PDF and trend), the dashboard header and day-end all follow `paid_at`, and each
+  payment carries its share of the sale's frozen FIFO cost so gross profit follows the
+  cash as well.
 * When the balance reaches zero the layby *and* its transaction are released to
-  `completed`, so the full sale value lands in the sales reports then.
-* **Day-end** excludes layby sales from takings and reports what was kept instead — a
-  *Layby kept* tile (net of refunds), a per-cashier line, and a `Layby kept` column in the
-  Excel export.
+  `completed` so the agreement leaves the active list. That release does **not** restate
+  a week's report: a completed layby receipt is never counted again as a whole sale, and
+  a layby opened earlier but settled now contributes only the money received in each
+  period.
+* **Day-end** never counts a layby receipt in full. The money actually received that day
+  *is* in takings — inside the cashier's total and inside the Cash / Card / Transfer bucket
+  of the method it was handed over by, so the drawer reconciles — and a
+  *Layby (included)* tile, a per-cashier note and an `of which layby` column in the Excel
+  export show how much of the total it makes up (net of refunds).
 * **Audit report** lists layby items like any other sale, badged **Layby**, with the
   receipt number in the details column.
 * **Cancelling** returns the reserved stock to the shelf, voids the sale, and **refunds the
@@ -1879,9 +1888,11 @@ sudo systemctl start connectlink
   negative branch stock as the evidence. Audited in `stock_reconciliation_log`.
 - ✅ Layby: a new payment method capturing customer name, ID number, deposit and a
   validated instalment plan, with a **Layby** sidebar tab for recording payments and
-  cancelling. Takings follow the money (instalments on the day received, the sale released
-  to completed on the final payment); day-end and the audit report both show layby
-  separately.
+  cancelling. Takings and gross profit follow the money (deposit and instalments on the
+  day each is received, carrying their share of the frozen cost) in the Sales & Profit
+  report, the dashboard and day-end; the sale is released to completed on the final
+  payment without adding its full value to any report again. Day-end and the audit report
+  both show layby separately.
 - ✅ Bulk stock upload: a file that lists the same new product twice no longer creates two
   products; the rows are collapsed by name before anything is written.
 

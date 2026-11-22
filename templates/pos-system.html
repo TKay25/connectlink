@@ -8290,6 +8290,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <li><strong>Gross Profit</strong> = Revenue - COGS (Cost of Goods Sold of items SOLD during the period)</li>
                         <li><strong>Profit Reinvested</strong> = Profits used to purchase new inventory</li>
                         <li><strong>Available Profit</strong> = Total Profit Earned - Profit Reinvested</li>
+                        <li><strong>Laybys</strong> = Revenue and gross profit are counted on the days the deposit and instalments were received, never as the whole agreement when it is opened or when the balance is finally paid. An agreement still being paid off is therefore never reported as a fully-paid sale.</li>
                         <li>Stock purchases funded by profits reduce available profit for future reinvestment</li>
                     </ul>
                 </div>
@@ -13547,13 +13548,17 @@ async function deleteStockAddition() {
     let currentTotalProfit = 0;
 
     async function exportSalesReport(type) {
-        if (!currentReportData || !currentReportData.length) {
+        const laybyCollections = window.__laybyCollections || [];
+        if ((!currentReportData || !currentReportData.length) && !laybyCollections.length) {
             showToast('No data to export', 'error');
             return;
         }
         
         logPosActivity('download', 'Exported Sales Report to ' + String(type || '').toUpperCase());
         
+        // The worksheet uses the same money the KPI cards show: completed sales
+        // plus the layby deposits/instalments received in the period. Each
+        // collection is its own line, dated on the day the money arrived.
         const reportData = currentReportData.map(t => ({
             'Date': t.created_at ? new Date(t.created_at).toLocaleDateString('en-ZA') : '',
             'Transaction #': t.transaction_number || '',
@@ -13563,7 +13568,17 @@ async function deleteStockAddition() {
             'Profit Margin %': t.total > 0 ? ((t.profit || 0) / t.total * 100).toFixed(1) : 0,
             'Payment Method': t.payment_method || '',
             'Cashier': t.cashier || ''
-        }));
+        })).concat(laybyCollections.map(p => ({
+            'Date': p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-ZA') : (p.date || ''),
+            'Transaction #': 'Layby collection' + (p.reference ? ' ' + p.reference : ''),
+            'Items': 0,
+            'Revenue': Number(p.revenue) || 0,
+            'Profit': Number(p.profit) || 0,
+            'Profit Margin %': Number(p.revenue) > 0
+                ? ((Number(p.profit) || 0) / Number(p.revenue) * 100).toFixed(1) : 0,
+            'Payment Method': 'layby',
+            'Cashier': p.cashier || ''
+        })));
         
         if (type === 'excel') {
             const ws = XLSX.utils.json_to_sheet(reportData);
@@ -13719,23 +13734,39 @@ async function loadSalesReport(message = 'Loading sales report...') {
         // the transaction list beside it. "All" is one of the switch positions, so
         // a whole-shop statement is still one click away -- and the exported PDF
         // always reads every department, whichever position is selected.
-        const [transactionsRes, reinvestmentRes] = await Promise.all([
+        // Layby money is fetched separately because it belongs to the days it
+        // was RECEIVED, not to the day the agreement was opened. A layby that is
+        // still being paid off, or one that closed this week after opening last
+        // week, therefore contributes exactly the deposits/instalments collected
+        // in this window - never its whole receipt.
+        const startIso = toLocalISODate(startDate);
+        const endIso = toLocalISODate(endDate);
+        const [transactionsRes, reinvestmentRes, laybyRes] = await Promise.all([
             fetch(`${API_BASE}/api/transactions?limit=2000`, { credentials: 'include' }),
-            fetch(`${API_BASE}/api/stock-additions`, { credentials: 'include' })
+            fetch(`${API_BASE}/api/stock-additions`, { credentials: 'include' }),
+            fetch(`${API_BASE}/api/laybys/collections?start=${startIso}&end=${endIso}`,
+                  { credentials: 'include' })
         ]);
         
         const transactionsData = await transactionsRes.json();
         const reinvestmentData = await reinvestmentRes.json();
+        let laybyData = {};
+        try {
+            laybyData = laybyRes.ok ? await laybyRes.json() : {};
+        } catch (e) {
+            console.error('Layby collections error:', e);
+        }
         
         console.log('Total transactions fetched:', transactionsData.transactions?.length || 0); // Debug
         
         if (transactionsData.success) {
             const filtered = transactionsData.transactions.filter(t => {
-                // Only sales count here. A layby is money in the till but not a
-                // sale yet -- it becomes one when it is paid off -- and the
-                // exported PDF's summary applies the same rule, so the tab and
-                // the PDF can never report different revenue.
+                // Only completed sales count here. A layby is not a completed
+                // sale while money is outstanding, and once it IS paid off its
+                // receipt must still not be counted as a whole: the collection
+                // rows above already carry its money into the right weeks.
                 if (t.status !== 'completed') return false;
+                if (String(t.payment_method || '').toLowerCase() === 'layby') return false;
                 const transDate = new Date(t.created_at);
                 return transDate >= startDate && transDate <= endDate;
             });
@@ -13744,8 +13775,11 @@ async function loadSalesReport(message = 'Loading sales report...') {
             
             // Pass reinvestment data to renderSalesReport
             const reinvestmentHistory = reinvestmentData.success ? reinvestmentData.additions : [];
+            const laybyCollections = laybyData.success ? (laybyData.payments || []) : [];
+            window.__laybyCollections = laybyCollections;
             console.log('Reinvestment history loaded:', reinvestmentHistory.length); // Debug
-            renderSalesReport(filtered, reinvestmentHistory);
+            console.log('Layby collections loaded:', laybyCollections.length); // Debug
+            renderSalesReport(filtered, reinvestmentHistory, laybyCollections);
         }
     } catch (error) {
         console.error('Error loading sales report:', error);
@@ -13842,6 +13876,10 @@ function buildSalesSummaryHtml(summary) {
 
     const t = summary.totals || {};
     const series = summary.series || [];
+    const layby = summary.layby_totals || {};
+    const laybyNote = Math.abs(Number(layby.revenue) || 0) > 0.004
+        ? `<div style="font-size:9.5px;color:#334155;margin-bottom:10px;">Includes ${money(layby.revenue)} received on laybys in this period (${money(layby.profit)} gross profit), counted on the dates the money was received.</div>`
+        : '';
     const unit = summary.bucket === 'week' ? 'Week' : summary.bucket === 'month' ? 'Month' : 'Day';
     const trendHtml = series.length ? `
         <h2 style="font-size:12px;margin:16px 0 6px 0;color:#0F1F3D;">Revenue &amp; Gross Profit by ${unit}</h2>
@@ -13861,6 +13899,7 @@ function buildSalesSummaryHtml(summary) {
         <h1 style="font-size:17px;margin:0 0 4px 0;color:#0F1F3D;border-bottom:3px solid #C12B3E;padding-bottom:6px;">Sales &amp; Profit Report</h1>
         <div style="font-size:11px;color:#334155;margin-bottom:2px;"><strong>Period:</strong> ${escapeHtml(salesReportScopeLabel() || (summary.start + ' to ' + summary.end))}</div>
         <div style="font-size:9.5px;color:#64748B;margin-bottom:12px;">ConnectLink Hardware &middot; Generated ${escapeHtml(new Date().toLocaleString())}</div>
+        ${laybyNote}
         <table style="width:100%;border-collapse:collapse;">
             <thead><tr>
                 <th style="padding:6px 8px;border:1px solid #CBD5E1;background:#0F1F3D;color:#ffffff;font-size:10px;text-transform:uppercase;text-align:left;">Branch / Department</th>
@@ -13932,6 +13971,7 @@ async function exportSalesReportPdf() {
     const money = salesReportMoney;
     const rows = summary.rows || [];
     const totals = summary.totals || {};
+    const laybyTotals = summary.layby_totals || {};
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
@@ -13984,13 +14024,23 @@ async function exportSalesReportPdf() {
     });
 
     // ---- Revenue and gross profit by branch and department ----
+    let tableTitleY = 138;
+    if (Math.abs(Number(laybyTotals.revenue) || 0) > 0.004) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(90, 98, 115);
+        doc.text('Includes ' + money(laybyTotals.revenue) + ' received on laybys in this period (' +
+                 money(laybyTotals.profit) + ' gross profit), counted when the money was received.',
+                 margin, 128);
+        tableTitleY = 142;
+    }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
-    doc.text('Revenue & Gross Profit by Branch and Department', margin, 138);
+    doc.text('Revenue & Gross Profit by Branch and Department', margin, tableTitleY);
 
     doc.autoTable({
-        startY: 146,
+        startY: tableTitleY + 8,
         head: [['Branch / Department', 'Revenue', 'Gross Profit', 'Margin %']],
         body: rows.length ? rows.map(function (r) {
             return [
@@ -14188,12 +14238,15 @@ function printSalesReportHtml(html) {
     setTimeout(() => { try { w.print(); } catch (e) { console.error('Print error:', e); } }, 350);
 }
 
-function renderSalesReport(transactions, reinvestmentHistory = []) {
+function renderSalesReport(transactions, reinvestmentHistory = [], laybyCollections = []) {
     // Store for export
     currentReportData = transactions;
+    window.__laybyCollections = laybyCollections || [];
     
-    // Check if there are no transactions
-    if (!transactions || transactions.length === 0) {
+    // Check if the period really held no money: a layby collection is trading
+    // too, even when no sale was completed in the same window.
+    if ((!transactions || transactions.length === 0) &&
+        (!laybyCollections || laybyCollections.length === 0)) {
         console.warn('No transactions found for the selected period');
         showToast('No transactions found for the selected period. Charts and data will be empty.', 'info');
     }
@@ -14309,9 +14362,58 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
             });
         }
     });
+
+    // Layby money is revenue on the day the shop received it. Each collection
+    // row already carries its proportion of the sale's frozen cost, so profit
+    // follows the cash instead of landing in a lump when the balance closed.
+    // Collections are payments, not new orders, so the transaction and item
+    // counts stay with the completed sales above.
+    //
+    // The average sale is measured on the sales alone: dividing revenue that
+    // includes instalments by a completed-sale count would report a basket size
+    // the shop never rang.
+    const salesOnlyRevenue = totalRevenue;
+    let laybyRevenueTotal = 0;
+    let laybyCogsTotal = 0;
+    let laybyProfitTotal = 0;
+    (laybyCollections || []).forEach(p => {
+        const revenue = Number(p.revenue) || 0;
+        const cogs = Number(p.cogs) || 0;
+        const profitValue = Number(p.profit);
+        const profit = Number.isFinite(profitValue) ? profitValue : revenue - cogs;
+        totalRevenue += revenue;
+        totalCOGS += cogs;
+        totalGrossProfit += profit;
+        totalProfitEarned += profit;
+        laybyRevenueTotal += revenue;
+        laybyCogsTotal += cogs;
+        laybyProfitTotal += profit;
+        if (!p.paid_at) return;
+        const when = new Date(p.paid_at);
+        if (isNaN(when.getTime())) return;
+        hourlyData[when.getHours()] += revenue;
+        const date = toLocalISODate(when);
+        if (!dailyData[date]) {
+            dailyData[date] = { sales: 0, profit: 0, cogs: 0, items: 0, count: 0 };
+        }
+        dailyData[date].sales += revenue;
+        dailyData[date].profit += profit;
+        dailyData[date].cogs += cogs;
+    });
+    // Keep the category table adding up to the Revenue KPI: layby money is not
+    // attached to a product category, so it gets a line of its own rather than
+    // silently disappearing from the breakdown.
+    if (laybyRevenueTotal !== 0 || laybyCogsTotal !== 0) {
+        categoryData['Layby collections'] = {
+            sales: laybyRevenueTotal,
+            profit: laybyProfitTotal,
+            quantity: 0,
+            cogs: laybyCogsTotal
+        };
+    }
     
     const grossMargin = totalRevenue > 0 ? (totalGrossProfit / totalRevenue * 100) : 0;
-    const avgOrderValue = transactions.length > 0 ? totalRevenue / transactions.length : 0;
+    const avgOrderValue = transactions.length > 0 ? salesOnlyRevenue / transactions.length : 0;
     const ros = totalRevenue > 0 ? (totalGrossProfit / totalRevenue * 100) : 0;
     const availableProfit = totalProfitEarned - profitReinvested;
     const reinvestmentRate = totalProfitEarned > 0 ? (profitReinvested / totalProfitEarned * 100) : 0;
@@ -15312,7 +15414,7 @@ function renderFilteredTransactions() {
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cash</div><div class="fw-bold">${usdMoney((pm.cash || 0))}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Card</div><div class="fw-bold">${usdMoney((pm.card || 0))}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transfer</div><div class="fw-bold">${usdMoney((pm.transfer || 0))}</div></div></div>
-            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Layby kept</div><div class="fw-bold text-success">${usdMoney((data.layby_total || 0))}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Layby (included)</div><div class="fw-bold text-success">${usdMoney((data.layby_total || 0))}</div></div></div>
         `;
 
         // When the day spans more than one shop, show each shop's own total so the
@@ -15326,16 +15428,20 @@ function renderFilteredTransactions() {
                 </div></div>`).join('');
         }
 
-        // Layby money received today is real takings. The layby sale itself is
-        // deliberately held out of the totals above until it is paid off, so it
-        // is called out here instead of being silently missing.
+        // Layby money received today is real takings, so it is already inside
+        // Total Sales above (and inside that cashier's Cash / Card / Transfer
+        // bucket, because cash in the drawer is cash whatever it was paying
+        // off). This strip is the memo of how much of the total it makes up --
+        // and it replaces the old rule that counted a layby receipt in full on
+        // the day its balance happened to close.
         if ((data.layby_collections || []).length) {
             const laybyRefunded = data.layby_refunded || 0;
             document.getElementById('dayEndSummary').innerHTML += `
                 <div class="col-12">
                     <div class="alert alert-success py-2 small mb-1">
                         <i class="fas fa-hand-holding-dollar me-1"></i>
-                        <strong>Layby money kept: ${usdMoney((data.layby_total || 0))}</strong>
+                        <strong>Of which layby money received today: ${usdMoney((data.layby_total || 0))}</strong>
+                        <span class="text-muted">(included in Total Sales)</span>
                         ${laybyRefunded > 0
                             ? `<span class="text-danger ms-2">refunds paid out today: ${usdMoney(laybyRefunded)}</span>`
                             : ''}
@@ -15344,7 +15450,7 @@ function renderFilteredTransactions() {
                             (c.refunded ? ` <span class="text-danger">(-${usdMoney(c.refunded)} refunded)</span>` : '') +
                             `</span>`
                         ).join('')}
-                        <div class="text-muted">Money taken or paid out at the counter today, net of refunds. The layby sale itself is not in Total Sales above until it is paid off.</div>
+                        <div class="text-muted">A layby sale is never counted here as a whole receipt &mdash; even when it is paid off today, only the money actually received is in the total.</div>
                     </div>
                 </div>`;
         }
@@ -15382,6 +15488,9 @@ function renderFilteredTransactions() {
                         <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Card</div><strong>${usdMoney((cpm.card || 0))}</strong></div></div>
                         <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Transfer</div><strong>${usdMoney((cpm.transfer || 0))}</strong></div></div>
                     </div>
+                    ${c.layby_collected
+                        ? `<div class="small text-muted mb-2"><i class="fas fa-hand-holding-dollar me-1"></i>Includes ${usdMoney(c.layby_collected)} of layby money taken today, shown in the method it was paid by.</div>`
+                        : ''}
                     <table class="table table-sm table-striped mb-0">
                         <thead><tr><th>Date</th><th>Receipt #</th><th>Items</th><th>Total</th><th>Payment</th></tr></thead>
                         <tbody>${txRows || '<tr><td colspan="5" class="text-center text-muted">No transactions</td></tr>'}</tbody>
@@ -15403,16 +15512,16 @@ function renderFilteredTransactions() {
             });
         }
         (data.cashiers || []).forEach(c => {
-            rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2), 'Layby kept': (c.layby_collected || 0).toFixed(2) });
+            rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2), 'of which layby': (c.layby_collected || 0).toFixed(2) });
         });
         if ((data.branches || []).length > 1) {
             rows.push({});
             rows.push({ 'Branch': 'BRANCH TOTALS' });
             (data.branches || []).forEach(b => {
-                rows.push({ 'Branch': b.branch_name || '', 'Total Sales': (b.total || 0).toFixed(2), 'Cash': ((b.payment_methods || {}).cash || 0).toFixed(2), 'Card': ((b.payment_methods || {}).card || 0).toFixed(2), 'Transfer': ((b.payment_methods || {}).transfer || 0).toFixed(2), 'Layby kept': (b.layby_collected || 0).toFixed(2) });
+                rows.push({ 'Branch': b.branch_name || '', 'Total Sales': (b.total || 0).toFixed(2), 'Cash': ((b.payment_methods || {}).cash || 0).toFixed(2), 'Card': ((b.payment_methods || {}).card || 0).toFixed(2), 'Transfer': ((b.payment_methods || {}).transfer || 0).toFixed(2), 'of which layby': (b.layby_collected || 0).toFixed(2) });
             });
         }
-        rows.push({ 'Branch': '', 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2), 'Layby kept': (data.layby_total || 0).toFixed(2) });
+        rows.push({ 'Branch': '', 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2), 'of which layby': (data.layby_total || 0).toFixed(2) });
         rows.push({});
         rows.push({ 'Branch': 'Branch', 'Cashier': 'Cashier', 'Total Sales': 'Receipt #', 'Cash': 'Items', 'Card': 'Total', 'Transfer': 'Payment' });
         (data.cashiers || []).forEach(c => {
@@ -21845,8 +21954,9 @@ function exportAnalyticsBrief() {
 }
 
 function renderAnalytics() {
+    const laybyCollections = window.__laybyCollections || [];
     // If we don't have data, load it first
-    if (!currentReportData || currentReportData.length === 0) {
+    if ((!currentReportData || currentReportData.length === 0) && !laybyCollections.length) {
         // Nothing has been filtered yet (the page was opened straight onto this tab):
         // fetch the report, which comes back and draws this function again.
         if (!window.__reportScope) {
@@ -21916,6 +22026,33 @@ function renderAnalytics() {
         }
     });
     
+    // Layby money collected in the period uses the same payment-date rule as
+    // the Sales tab: it belongs to the day it was received, not to the day the
+    // agreement was opened. Average sale is left on the sales alone, because an
+    // instalment is money for a basket rung in an earlier period.
+    const salesOnlyRevenue = totalRevenue;
+    let laybyRevenueForCategories = 0;
+    laybyCollections.forEach(p => {
+        const revenue = Number(p.revenue) || 0;
+        totalRevenue += revenue;
+        laybyRevenueForCategories += revenue;
+        if (!p.paid_at) return;
+        const when = new Date(p.paid_at);
+        if (isNaN(when.getTime())) return;
+        hourlyData[when.getHours()] += revenue;
+        const date = toLocalISODate(when);
+        if (!dailySales[date]) dailySales[date] = { sales: 0, profit: 0 };
+        dailySales[date].sales += revenue;
+        const profitValue = Number(p.profit);
+        const cogsValue = Number(p.cogs) || 0;
+        dailySales[date].profit += Number.isFinite(profitValue)
+            ? profitValue : (revenue - cogsValue);
+    });
+    if (laybyRevenueForCategories !== 0) {
+        categorySales['Layby collections'] =
+            (categorySales['Layby collections'] || 0) + laybyRevenueForCategories;
+    }
+
     // ---- Headline KPIs for the period ----
     let totalProfit = 0;
     let itemsSold = 0;
@@ -21923,9 +22060,13 @@ function renderAnalytics() {
         totalProfit += t.profit || 0;
         (t.items || []).forEach(i => { itemsSold += i.quantity || 0; });
     });
+    laybyCollections.forEach(p => {
+        const profitValue = Number(p.profit);
+        totalProfit += Number.isFinite(profitValue) ? profitValue : 0;
+    });
     const txCount = currentReportData.length;
     const marginPct = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-    const avgSale = txCount > 0 ? totalRevenue / txCount : 0;
+    const avgSale = txCount > 0 ? salesOnlyRevenue / txCount : 0;
     const kpiEl = document.getElementById('analyticsKpis');
     if (kpiEl) {
         // Previous period of the SAME length, read from the same report data, so

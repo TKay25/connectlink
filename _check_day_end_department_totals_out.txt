@@ -10,6 +10,14 @@ PASS  the mixed row is flagged as scoped
 PASS  a sale wholly in Hardware is not flagged  -> {'created_at': '2026-11-02T11:00:00', 'department_scoped': False, 'id': 2, 'items': [{'cost_at_time': 30.0, 'price': 50.0, 'product_name': 'Nails', 'quantity': 3}], 'payment_method': 'card', 'receipt_total': 150.0, 'total': 150.0, 'transaction_number': 'T2'}
 PASS  the Furniture day-end counts the Furniture line  -> 200.0
 PASS  and calls itself Furniture  -> Furniture
+PASS  a layby instalment taken today is in the day's takings  -> 290.0
+PASS  and in the method bucket it was paid by (cash in the drawer)  -> {'card': 150.0, 'cash': 140.0}
+PASS  the layby figure is a memo of that total, net of refunds  -> 40.0
+PASS  the cashier total carries it too, so the tabs add up to the total  -> [{'branch_id': 1, 'branch_name': 'Shurugwi', 'cashier': 'Mrs G', 'layby_collected': 40.0, 'payment_methods': {'card': 150.0, 'cash': 140.0}, 'total': 290.0, 'transaction_count': 2, 'transactions': [{'created_at': '2026-11-02T10:00:00', 'department_scoped': True, 'id': 1, 'items': [{'cost_at_time': 60.0, 'price': 100.0, 'product_name': 'Cement', 'quantity': 1}], 'payment_method': 'cash', 'receipt_total': 300.0, 'total': 100.0, 'transaction_number': 'T1'}, {'created_at': '2026-11-02T11:00:00', 'department_scoped': False, 'id': 2, 'items': [{'cost_at_time': 30.0, 'price': 50.0, 'product_name': 'Nails', 'quantity': 3}], 'payment_method': 'card', 'receipt_total': 150.0, 'total': 150.0, 'transaction_number': 'T2'}]}]
+PASS  the branch figure carries it too  -> [{'branch_id': 1, 'branch_name': 'Shurugwi', 'layby_collected': 40.0, 'payment_methods': {'card': 150.0, 'cash': 140.0}, 'total': 290.0, 'transaction_count': 2}]
+PASS  a layby payment is not listed as a sale row  -> ['T1', 'T2']
+PASS  the other shelf does not carry Hardware layby money  -> (200.0, {'cash': 200.0})
+PASS  and its memo is empty
 PASS  the All view is the whole shop  -> 450.0
 PASS  the All view is not marked as department scoped
 PASS  no row is flagged as scoped on All  -> [('T1', False), ('T2', False)]

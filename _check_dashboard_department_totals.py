@@ -146,6 +146,15 @@ def build_db():
             cost_at_time REAL);
         CREATE TABLE admin_users (id INTEGER PRIMARY KEY, full_name TEXT);
         CREATE TABLE branches (id INTEGER PRIMARY KEY, name TEXT);
+        -- The report queries now ask whether a receipt belongs to a layby, so
+        -- the layby tables have to exist even though their money is recognised
+        -- by /api/laybys/collections rather than through these sale sums.
+        CREATE TABLE laybys (
+            id INTEGER PRIMARY KEY, transaction_id INTEGER, branch_id INTEGER,
+            total_amount REAL);
+        CREATE TABLE layby_payments (
+            id INTEGER PRIMARY KEY, layby_id INTEGER, amount REAL, method TEXT,
+            kind TEXT, user_name TEXT, paid_at TEXT);
         INSERT INTO admin_users (id, full_name) VALUES (7, 'Mrs G Admin');
         INSERT INTO branches (id, name) VALUES (1, 'Shurugwi'), (2, 'Chegutu');
         INSERT INTO products (id, buy_price) VALUES (10, 400.00), (20, 250.00);
@@ -162,6 +171,9 @@ def build_db():
         (7, 'T7', 7, 'cash', 'completed', 500.00, 500.00, today + ' 14:00:00', 2, 0),  # other shop
         # a completed receipt with no lines at all (a migrated row)
         (8, 'T8', 7, 'cash', 'completed', 25.00, 25.00, today + ' 15:00:00', 1, 0),
+        # A LAYBY that has been PAID OFF: its status is 'completed' and it keeps
+        # its opening day, but its money belongs to the dates it was collected.
+        (9, 'T9', 7, 'layby', 'completed', 80.00, 80.00, today + ' 16:00:00', 1, 0),
     ]
     items = [
         (1, 1, 10, 2, 500.00, 1000.00, 'hardware', 400.00),
@@ -172,9 +184,17 @@ def build_db():
         (6, 5, 10, 1, 40.00, 40.00, 'hardware', 400.00),
         (7, 6, 10, 1, 70.00, 70.00, 'hardware', 400.00),
         (8, 7, 10, 4, 125.00, 500.00, 'hardware', 400.00),
+        (9, 9, 10, 1, 80.00, 80.00, 'hardware', 60.00),   # the paid-off layby
     ]
     db.executemany('INSERT INTO transactions VALUES (?,?,?,?,?,?,?,?,?,?)', rows)
     db.executemany('INSERT INTO transaction_items VALUES (?,?,?,?,?,?,?,?)', items)
+    # The layby agreement behind T9: the receipt is completed, and the money was
+    # received as deposits/instalments (recognised by /api/laybys/collections).
+    db.execute('INSERT INTO laybys (id, transaction_id, branch_id, total_amount) '
+               'VALUES (1, 9, 1, 80.00)')
+    db.execute("INSERT INTO layby_payments (id, layby_id, amount, method, kind, "
+               "user_name, paid_at) VALUES (1, 1, 80.00, 'cash', 'payment', "
+               "'Mrs G Admin', ?)", (today + ' 16:00:00',))
     db.commit()
     return db, today
 
@@ -278,6 +298,10 @@ check('Hardware + Furniture is the shop total (the itemless receipt is All-only)
 check('the itemless receipt still shows on All, with no phantom items',
       stats.get('all', {}).get('sales') == 2315.75 and stats.get('all', {}).get('items') == 8,
       stats.get('all'))
+check('a PAID-OFF layby receipt never lands in the sales figures as a whole sale',
+      stats.get('all', {}).get('sales') == 2315.75
+      and stats.get('hardware', {}).get('sales') == 1100.0,
+      {'all': stats.get('all'), 'hardware': stats.get('hardware')})
 
 # ---------------------------------------------------------------------------
 # 2. The cashier breakdown must agree with the pills, on every shelf
@@ -315,9 +339,11 @@ else:
         rows = []
     report = {}
     for r in rows:
-        if r[0] != 'Shurugwi':
+        # SQL columns: 0 branch_id, 1 branch_name, 2 department, 3 transactions,
+        # 4 items, 5 revenue, 6 cogs.
+        if r[1] != 'Shurugwi':
             continue
-        report[r[1]] = {'revenue': round(float(r[4] or 0), 2), 'items': int(r[3] or 0)}
+        report[r[2]] = {'revenue': round(float(r[5] or 0), 2), 'items': int(r[4] or 0)}
     check('the PDF summary reports Shurugwi Hardware at the header figure',
           report.get('hardware', {}).get('revenue') == stats.get('hardware', {}).get('sales'),
           {'report': report.get('hardware'), 'header': stats.get('hardware')})
@@ -325,8 +351,8 @@ else:
           report.get('furniture', {}).get('revenue') == stats.get('furniture', {}).get('sales'),
           {'report': report.get('furniture'), 'header': stats.get('furniture')})
     check('the report lists both shelves of the branch',
-          len(rows) >= 2 and {r[1] for r in rows} == {'hardware', 'furniture'},
-          [(r[0], r[1]) for r in rows])
+          len(rows) >= 2 and {r[2] for r in rows} == {'hardware', 'furniture'},
+          [(r[1], r[2]) for r in rows])
 
 # ---------------------------------------------------------------------------
 # 4. The All Branches view adds the shops together

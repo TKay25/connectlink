@@ -17762,6 +17762,150 @@ def _serialize_layby(cursor, row):
     }
 
 
+def _layby_recognised_activity(start_date, end_date, departments=None):
+    """Layby money received in a period, split by day and by shelf.
+
+    A layby is not revenue when the agreement is opened, and it is not revenue
+    all at once when the last instalment happens to settle it: it is revenue as
+    the customer hands money over. Each deposit and instalment therefore counts
+    on its own `paid_at` day, carrying that proportion of the sale's frozen FIFO
+    cost, so profit is earned at the same pace as the money. A refund (the only
+    one a cancellation writes) reverses both on the day it is paid back.
+
+    Department shares follow the layby's own sale lines, so Hardware and
+    Furniture each carry only their part and the two always add up to the shop.
+
+    Returns one dict per payment / cashier / branch / department. Callers sum
+    the rows they need rather than re-deriving the money.
+    """
+    start = start_date.isoformat() if hasattr(start_date, 'isoformat') else str(start_date)[:10]
+    end = end_date.isoformat() if hasattr(end_date, 'isoformat') else str(end_date)[:10]
+    depts = list(departments) if departments else department_read_scope()
+    query = """
+        WITH layby_money AS (
+            SELECT lp.id, lp.layby_id, lp.paid_at, lp.amount, lp.method,
+                   COALESCE(lp.user_name, 'Unknown') AS cashier,
+                   COALESCE(lp.kind, 'payment') AS kind
+            FROM layby_payments lp
+            -- Half-open day range, so the (paid_at) index can answer it; the
+            -- same window, said without a function wrapped round the column.
+            WHERE lp.paid_at >= %s::date
+              AND lp.paid_at < (%s::date + INTERVAL '1 day')
+        ),
+        layby_lines AS (
+            SELECT l.id AS layby_id,
+                   l.branch_id,
+                   CASE WHEN lower(COALESCE(ti.department, '')) = 'furniture'
+                        THEN 'furniture' ELSE 'hardware' END AS department,
+                   COALESCE(SUM(ti.subtotal), 0) AS line_revenue,
+                   COALESCE(SUM(ti.quantity * COALESCE(ti.cost_at_time, p.buy_price, 0)), 0)
+                       AS line_cogs
+            FROM laybys l
+            JOIN transaction_items ti ON ti.transaction_id = l.transaction_id
+            LEFT JOIN products p ON p.id = ti.product_id
+            -- Only the agreements that actually took money in this window, so a
+            -- weekly report never reads the whole sales history to price a
+            -- handful of instalments.
+            WHERE EXISTS (SELECT 1 FROM layby_money pm WHERE pm.layby_id = l.id)
+            GROUP BY l.id, l.branch_id, 3
+        ),
+        layby_sale AS (
+            SELECT layby_id, branch_id, department, line_revenue, line_cogs,
+                   SUM(line_revenue) OVER (PARTITION BY layby_id) AS sale_revenue
+            FROM layby_lines
+        )
+        SELECT m.paid_at,
+               m.paid_at::date AS day,
+               s.branch_id,
+               COALESCE(b.name, 'Unassigned branch') AS branch_name,
+               s.department,
+               m.cashier,
+               COALESCE(m.method, 'layby') AS method,
+               SUM(CASE WHEN m.kind = 'refund' THEN -m.amount ELSE m.amount END
+                   * (s.line_revenue / NULLIF(s.sale_revenue, 0))) AS revenue,
+               SUM(CASE WHEN m.kind = 'refund' THEN -m.amount ELSE m.amount END
+                   * (s.line_cogs / NULLIF(s.sale_revenue, 0))) AS cogs,
+               -- The gross split, so a day-end can still say what came in and
+               -- what went back out instead of only the net.
+               SUM(CASE WHEN m.kind = 'refund' THEN 0 ELSE m.amount END) AS collected,
+               SUM(CASE WHEN m.kind = 'refund' THEN m.amount ELSE 0 END) AS refunded,
+               COUNT(*) AS payment_count
+        FROM layby_money m
+        JOIN layby_sale s ON s.layby_id = m.layby_id
+        LEFT JOIN branches b ON b.id = s.branch_id
+        WHERE s.department = ANY(%s)
+    """
+    params = [start, end, depts]
+    branch_where, branch_params = branch_read_clause('s.branch_id')
+    query += branch_where + " GROUP BY 1, 2, 3, 4, 5, 6, 7 ORDER BY 1, 3, 5"
+    params.extend(branch_params)
+    rows = execute_query(query, tuple(params), fetch_all=True) or []
+    activity = []
+    for r in rows:
+        revenue = round(float(r[7] or 0), 2)
+        cogs = round(float(r[8] or 0), 2)
+        activity.append({
+            'paid_at': r[0].isoformat() if hasattr(r[0], 'isoformat') else str(r[0]),
+            'day': r[1].isoformat() if hasattr(r[1], 'isoformat') else str(r[1]),
+            'branch_id': r[2],
+            'branch_name': r[3],
+            'department': r[4] or DEFAULT_DEPARTMENT,
+            'cashier': r[5] or 'Unknown',
+            'method': r[6] or 'layby',
+            'revenue': revenue,
+            'cogs': cogs,
+            'profit': round(revenue - cogs, 2),
+            'collected': round(float(r[9] or 0), 2),
+            'refunded': round(float(r[10] or 0), 2),
+            'payment_count': int(r[11] or 0),
+        })
+    return activity
+
+
+@app.route('/api/laybys/collections', methods=['GET'])
+@login_required
+def layby_collections():
+    """Money received against laybys in a date range.
+
+    The Sales & Profit report reads this beside the completed sales, so a week
+    shows what the shop actually collected against laybys in that week -- not
+    the whole agreement on the day it was opened, and not a lump on the day the
+    final instalment settled it.
+    """
+    start = (request.args.get('start') or '').strip()
+    end = (request.args.get('end') or '').strip()
+    if not start or not end:
+        return jsonify({'success': False, 'error': 'start and end dates are required'}), 400
+    try:
+        start_date = datetime.strptime(start, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'success': False, 'error': 'start and end must be YYYY-MM-DD'}), 400
+    if end_date < start_date:
+        start_date, end_date = end_date, start_date
+
+    try:
+        rows = _layby_recognised_activity(start_date, end_date)
+    except Exception as e:
+        print(f"Layby collections error: {e}")
+        return jsonify({'success': False,
+                        'error': 'Could not read the layby collections'}), 500
+
+    revenue = round(sum(r['revenue'] for r in rows), 2)
+    cogs = round(sum(r['cogs'] for r in rows), 2)
+    return jsonify({
+        'success': True,
+        'start': start_date.isoformat(),
+        'end': end_date.isoformat(),
+        'payments': rows,
+        'totals': {
+            'revenue': revenue,
+            'cogs': cogs,
+            'profit': round(revenue - cogs, 2)
+        }
+    })
+
+
 @app.route('/api/pos/laybys', methods=['POST'])
 @login_required
 @block_writes_in_consolidated_view
@@ -24017,6 +24161,13 @@ def get_branch_department_summary():
     A sale that contains goods from both departments is counted once under each,
     so `transactions` and `items` are per-row figures; the money columns add up
     exactly, because every line belongs to exactly one department.
+
+    A layby is different: its money belongs to the dates it was RECEIVED, not to
+    the day the agreement was opened or the day the balance happened to reach
+    zero. Its completed-sale row is therefore left out of the sales query and
+    its deposits/instalments are recognised here instead, each carrying its share
+    of the frozen cost so profit follows the cash. A week can no longer be
+    restated as a fully-paid sale because an old layby settled in a later week.
     """
     start = (request.args.get('start') or '').strip()
     end = (request.args.get('end') or '').strip()
@@ -24032,7 +24183,8 @@ def get_branch_department_summary():
         start, end = start_date.isoformat(), end_date.isoformat()
 
     query = """
-        SELECT COALESCE(b.name, 'Unassigned branch') AS branch_name,
+        SELECT t.branch_id,
+               COALESCE(b.name, 'Unassigned branch') AS branch_name,
                CASE WHEN lower(COALESCE(ti.department, '')) = 'furniture'
                     THEN 'furniture' ELSE 'hardware' END AS department,
                COUNT(DISTINCT t.id) AS transaction_count,
@@ -24045,17 +24197,22 @@ def get_branch_department_summary():
         LEFT JOIN branches b ON b.id = t.branch_id
         WHERE t.voided = FALSE
           -- A layby is money in the till but not a sale yet: it becomes
-          -- 'completed' when it is paid off, which is when it counts here. Every
-          -- "sales today" figure in the till applies the same rule, so the report
-          -- and the header can never tell two different stories.
+          -- 'completed' when it is paid off. That completion is NOT the day its
+          -- money belongs to, so its receipt is left out here and recognised
+          -- instalment by instalment below. Counting it here would put the whole
+          -- agreement's value into whichever period the balance was closed in
+          -- (and, because created_at keeps the opening day, restate an old week
+          -- as if it had been paid in full then).
           AND t.status = 'completed'
+          AND COALESCE(t.payment_method, '') <> 'layby'
+          AND NOT EXISTS (SELECT 1 FROM laybys l WHERE l.transaction_id = t.id)
           AND t.created_at::date >= %s::date
           AND t.created_at::date <= %s::date
     """
     branch_where, branch_params = branch_read_clause('t.branch_id')
     query = query + branch_where + """
-        GROUP BY t.branch_id, b.name, 2
-        ORDER BY 1, 2
+        GROUP BY t.branch_id, b.name, 3
+        ORDER BY 2, 3
     """
 
     try:
@@ -24064,20 +24221,59 @@ def get_branch_department_summary():
         print(f"Error building branch/department summary: {e}")
         return jsonify({'success': False, 'error': 'Could not build the summary'}), 500
 
+    # The money the shop actually received against laybys in this period, on the
+    # same branch/department footing as the sales above. EVERY department, not
+    # the shelf on screen: this endpoint is the whole-shop PDF and its sales
+    # query is not department-filtered, so scoping only the layby part to the
+    # session would silently drop the other shelf's instalments.
+    try:
+        layby_rows = _layby_recognised_activity(start_date, end_date,
+                                                departments=list(DEPARTMENTS))
+    except Exception as e:
+        print(f"Error reading layby collections for the summary: {e}")
+        return jsonify({'success': False, 'error': 'Could not build the summary'}), 500
+
+    def _blank_bucket(branch_name, department):
+        return {'branch_name': branch_name, 'department': department,
+                'transactions': 0, 'items': 0, 'revenue': 0.0, 'cogs': 0.0}
+
+    buckets = {}
+    for r in rows:
+        department = r[2] or DEFAULT_DEPARTMENT
+        bucket = buckets.setdefault(
+            (r[0], department),
+            _blank_bucket(r[1] or 'Unassigned branch', department))
+        bucket['transactions'] += int(r[3] or 0)
+        bucket['items'] += int(r[4] or 0)
+        bucket['revenue'] += float(r[5] or 0)
+        bucket['cogs'] += float(r[6] or 0)
+
+    layby_revenue = 0.0
+    layby_cogs = 0.0
+    for r in layby_rows:
+        key = (r['branch_id'], r['department'])
+        bucket = buckets.setdefault(
+            key, _blank_bucket(r['branch_name'] or 'Unassigned branch', r['department']))
+        bucket['revenue'] += r['revenue']
+        bucket['cogs'] += r['cogs']
+        layby_revenue += r['revenue']
+        layby_cogs += r['cogs']
+
     summary = []
     total_revenue = 0.0
     total_cogs = 0.0
-    for r in rows:
-        revenue = float(r[4] or 0)
-        cogs = float(r[5] or 0)
+    for _key, bucket in sorted(buckets.items(),
+                               key=lambda kv: (kv[1]['branch_name'] or '', kv[0][1])):
+        revenue = bucket['revenue']
+        cogs = bucket['cogs']
         profit = revenue - cogs
-        department = r[1] or DEFAULT_DEPARTMENT
+        department = bucket['department'] or DEFAULT_DEPARTMENT
         summary.append({
-            'branch_name': r[0],
+            'branch_name': bucket['branch_name'],
             'department': department,
             'department_label': DEPARTMENT_LABELS.get(department, str(department).title()),
-            'transactions': int(r[2] or 0),
-            'items': int(r[3] or 0),
+            'transactions': bucket['transactions'],
+            'items': bucket['items'],
             'revenue': round(revenue, 2),
             'cogs': round(cogs, 2),
             'profit': round(profit, 2),
@@ -24111,6 +24307,10 @@ def get_branch_department_summary():
         "LEFT JOIN products p ON p.id = ti.product_id "
         "WHERE t.voided = FALSE "
         "AND t.status = 'completed' "
+        # Layby money is added below on the days it was received, so the trend
+        # follows the same rule as the table.
+        "AND COALESCE(t.payment_method, '') <> 'layby' "
+        "AND NOT EXISTS (SELECT 1 FROM laybys l WHERE l.transaction_id = t.id) "
         "AND t.created_at::date >= %s::date "
         "AND t.created_at::date <= %s::date"
     )
@@ -24149,6 +24349,22 @@ def get_branch_department_summary():
         revenue = float(r[1] or 0)
         achieved[r[0]] = (revenue, revenue - float(r[2] or 0))
 
+    # Layby money joins the bucket the customer actually paid in, so "week on
+    # week" moves because cash arrived, not because an old agreement closed.
+    for r in layby_rows:
+        try:
+            paid_day = datetime.strptime(str(r['day'])[:10], '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            continue
+        if bucket == 'week':
+            bucket_day = paid_day - timedelta(days=paid_day.weekday())
+        elif bucket == 'month':
+            bucket_day = paid_day.replace(day=1)
+        else:
+            bucket_day = paid_day
+        revenue, profit = achieved.get(bucket_day, (0.0, 0.0))
+        achieved[bucket_day] = (revenue + r['revenue'], profit + r['profit'])
+
     series = []
     if start_date and end_date:
         for bucket_day in _bucket_starts(start_date, end_date, bucket):
@@ -24170,6 +24386,14 @@ def get_branch_department_summary():
             'cogs': round(total_cogs, 2),
             'profit': round(total_profit, 2),
             'margin': round(total_profit / total_revenue * 100, 1) if total_revenue > 0 else 0.0
+        },
+        # The part of the figures above that came from layby money received in
+        # this period. Shown so the report can say why its revenue is not simply
+        # the receipts of the sales completed in the same window.
+        'layby_totals': {
+            'revenue': round(layby_revenue, 2),
+            'cogs': round(layby_cogs, 2),
+            'profit': round(layby_revenue - layby_cogs, 2)
         },
         'bucket': bucket,
         'series': series
@@ -24219,8 +24443,12 @@ def day_end_report():
               AND t.voided = FALSE
               -- A layby is NOT money taken today. Only its instalments are, and
               -- those are collected separately below; counting the whole layby
-              -- here would claim takings the shop has not received yet.
+              -- here would claim takings the shop has not received yet. A layby
+              -- that was settled today has already become 'completed', so it is
+              -- excluded by its payment method as well -- otherwise its full
+              -- receipt AND today's instalments would both be counted.
               AND COALESCE(t.status, 'completed') <> 'layby'
+              AND COALESCE(t.payment_method, '') <> 'layby'
               -- Day-end describes the departments in view: on All, the whole
               -- shop's day, which is what the totals beside it must mean.
               AND EXISTS (
@@ -24310,58 +24538,73 @@ def day_end_report():
                 'items': items
             })
 
+        # ---- Layby money received today --------------------------------------
+        # This is money the till actually took, so it is part of the day's
+        # takings -- in the cashier's total and in the payment-method bucket of
+        # the method it was handed over by (cash in the drawer is cash, whatever
+        # was being paid off). It comes from the same payment-date rule the POS
+        # header and the Sales & Profit report use, so all three agree on the
+        # same day, and it is scoped to the departments in view like everything
+        # else here.
+        layby_rows = _layby_recognised_activity(day, day)
+
+        def _ensure_cashier(branch_name, branch_id, cashier):
+            key = (branch_name, cashier)
+            if key not in cashier_map:
+                cashier_map[key] = {
+                    'cashier': cashier,
+                    'branch_id': branch_id,
+                    'branch_name': branch_name,
+                    'total': 0.0,
+                    'transaction_count': 0,
+                    'payment_methods': {},
+                    'transactions': []
+                }
+            return cashier_map[key]
+
+        def _ensure_branch(branch_name, branch_id):
+            if branch_name not in branch_map:
+                branch_map[branch_name] = {
+                    'branch_id': branch_id,
+                    'branch_name': branch_name,
+                    'total': 0.0,
+                    'transaction_count': 0,
+                    'payment_methods': {}
+                }
+            return branch_map[branch_name]
+
+        layby_collections = {}
+        for lr in layby_rows:
+            branch_name = lr['branch_name'] or 'Unassigned'
+            c = _ensure_cashier(branch_name, lr['branch_id'], lr['cashier'])
+            b = _ensure_branch(branch_name, lr['branch_id'])
+            revenue = lr['revenue']
+            c['total'] += revenue
+            b['total'] += revenue
+            add_pm(c['payment_methods'], lr['method'], revenue)
+            add_pm(b['payment_methods'], lr['method'], revenue)
+            add_pm(overall_pm, lr['method'], revenue)
+            c['layby_collected'] = round(c.get('layby_collected', 0.0) + revenue, 2)
+            b['layby_collected'] = round(b.get('layby_collected', 0.0) + revenue, 2)
+
+            coll = layby_collections.setdefault(
+                (lr['cashier'], lr['branch_id']),
+                {'cashier': lr['cashier'], 'branch_name': branch_name,
+                 'branch_id': lr['branch_id'], 'collected': 0.0, 'refunded': 0.0,
+                 'net': 0.0, 'payment_count': 0})
+            coll['collected'] = round(coll['collected'] + lr['collected'], 2)
+            coll['refunded'] = round(coll['refunded'] + lr['refunded'], 2)
+            coll['net'] = round(coll['net'] + revenue, 2)
+            coll['payment_count'] += lr['payment_count']
+
+        layby_collections = list(layby_collections.values())
         cashiers = list(cashier_map.values())
         branches = list(branch_map.values())
-
-        # ---- Layby instalments received today --------------------------------
-        # This is money the till actually took, so it belongs in the day-end
-        # figures even though the layby itself is not a completed sale yet.
-        lp_sql = """
-            SELECT COALESCE(lp.user_name, 'Unknown') AS cashier,
-                   COALESCE(b.name, 'Unassigned') AS branch_name,
-                   l.branch_id,
-                   COALESCE(SUM(CASE WHEN COALESCE(lp.kind, 'payment') = 'refund'
-                                     THEN 0 ELSE lp.amount END), 0) AS collected,
-                   COALESCE(SUM(CASE WHEN COALESCE(lp.kind, 'payment') = 'refund'
-                                     THEN lp.amount ELSE 0 END), 0) AS refunded,
-                   COUNT(*) AS payment_count
-            FROM layby_payments lp
-            JOIN laybys l ON l.id = lp.layby_id
-            LEFT JOIN branches b ON b.id = l.branch_id
-            WHERE lp.paid_at::date = %s::date
-        """
-        lp_where, lp_params = branch_read_clause('l.branch_id')
-        lp_sql = lp_sql + lp_where + """
-            GROUP BY 1, 2, 3
-            ORDER BY 1
-        """
-        lp_rows = execute_query(lp_sql, (day,) + tuple(lp_params), fetch_all=True) or []
-        layby_collections = []
-        for r in lp_rows:
-            collected = round(float(r[3] or 0), 2)
-            refunded = round(float(r[4] or 0), 2)
-            layby_collections.append({
-                'cashier': r[0],
-                'branch_name': r[1],
-                'branch_id': r[2],
-                'collected': collected,
-                'refunded': refunded,
-                # Money the shop is actually up on: what came in, less refunds.
-                'net': round(collected - refunded, 2),
-                'payment_count': int(r[5] or 0)
-            })
-
-        # Attach the net instalment money to the person and shop that took it, so
-        # the reader can see takings = completed sales + layby money kept.
-        for coll in layby_collections:
-            for c in cashiers:
-                if c['cashier'] == coll['cashier'] and c['branch_id'] == coll['branch_id']:
-                    c['layby_collected'] = round(
-                        c.get('layby_collected', 0.0) + coll['net'], 2)
-            for b in branches:
-                if b['branch_id'] == coll['branch_id']:
-                    b['layby_collected'] = round(
-                        b.get('layby_collected', 0.0) + coll['net'], 2)
+        for c in cashiers:
+            c['total'] = round(c['total'], 2)
+        for b in branches:
+            b['total'] = round(b['total'], 2)
+        overall_pm = {k: round(v, 2) for k, v in overall_pm.items()}
         layby_total = round(sum(c['net'] for c in layby_collections), 2)
         layby_refunded = round(sum(c['refunded'] for c in layby_collections), 2)
 
@@ -24410,6 +24653,11 @@ def get_daily_summary():
         WHERE DATE(created_at) = CURRENT_DATE
         AND status = 'completed'
         AND voided = FALSE
+        -- A layby's receipt is not today's money: its deposits and instalments
+        -- are counted on the days they were taken (see below), never as the
+        -- whole agreement on the day the balance happened to close.
+        AND COALESCE(payment_method, '') <> 'layby'
+        AND NOT EXISTS (SELECT 1 FROM laybys l WHERE l.transaction_id = transactions.id)
         -- Department scope, matching the header and the dashboard: the
         -- departments in view (both of them on All).
         AND EXISTS (
@@ -24425,14 +24673,25 @@ def get_daily_summary():
     result = execute_query(query,
                            (DEFAULT_DEPARTMENT, _sum_depts, DEFAULT_DEPARTMENT, _sum_depts)
                            + tuple(sum_branch_params), fetch_one=True)
-    
+
+    today = get_zimbabwe_time().date()
+    try:
+        layby_today = _layby_recognised_activity(today, today)
+    except Exception as e:
+        print(f"Note: could not read today's layby collections: {e}")
+        layby_today = []
+    layby_revenue = round(sum(r['revenue'] for r in layby_today), 2)
+    sales_total = (float(result[0]) if result else 0) + layby_revenue
+    subtotal_total = (float(result[1]) if result else 0) + layby_revenue
+
     return jsonify({
         'success': True,
-        'today_sales': float(result[0]) if result else 0,
-        'total_subtotal': float(result[1]) if result else 0,
+        'today_sales': sales_total,
+        'total_subtotal': subtotal_total,
         'total_tax': float(result[2]) if result else 0,
         'transaction_count': result[3] if result else 0,
-        'items_sold': result[4] if result else 0
+        'items_sold': result[4] if result else 0,
+        'layby_collected': layby_revenue
     })
 
 @app.route('/api/transactions/clear-all', methods=['DELETE'])
@@ -24747,6 +25006,11 @@ def get_dashboard_stats():
         AND created_at < CURRENT_DATE + 1
         AND status = 'completed'
         AND voided = FALSE
+        -- Layby money is not booked on the receipt's day: the completed-sale
+        -- figure would count an old agreement in full the day it settled.
+        -- Today's deposits and instalments are added below instead.
+        AND COALESCE(payment_method, '') <> 'layby'
+        AND NOT EXISTS (SELECT 1 FROM laybys l WHERE l.transaction_id = transactions.id)
         {takings_where}
     """
     branch_where, branch_params = branch_read_clause('branch_id')
@@ -24755,6 +25019,14 @@ def get_dashboard_stats():
         today_query,
         tuple(revenue_params) + tuple(items_params) + tuple(takings_params) + tuple(branch_params),
         fetch_one=True)
+
+    today = get_zimbabwe_time().date()
+    try:
+        layby_today = _layby_recognised_activity(today, today)
+    except Exception as e:
+        print(f"Note: could not read today's layby collections: {e}")
+        layby_today = []
+    layby_today_revenue = round(sum(r['revenue'] for r in layby_today), 2)
     
     # Low stock is a PER-BRANCH figure: the same catalogue item can be plentiful
     # in one shop and nearly out in the other.
@@ -24783,7 +25055,7 @@ def get_dashboard_stats():
     # alone with include_profit=0 and keep the figure they already hold.
     include_profit = str(request.args.get('include_profit') or '1').lower() not in ('0', 'false', 'no')
     stats = {
-        'today_sales': float(today_result[0]) if today_result else 0,
+        'today_sales': (float(today_result[0]) if today_result else 0) + layby_today_revenue,
         'items_sold': today_result[1] if today_result else 0,
         'low_stock_count': low_stock_result[0] if low_stock_result else 0,
         'total_products': total_products_result[0] if total_products_result else 0,
@@ -24798,11 +25070,26 @@ def get_dashboard_stats():
             JOIN transactions t ON ti.transaction_id = t.id
             WHERE t.status = 'completed'
               AND t.voided = FALSE
+              -- Same rule as revenue: a layby's profit is earned as its money
+              -- arrives, and is added below. Counting the completed receipt
+              -- here would book the whole margin the day the balance closed.
+              AND COALESCE(t.payment_method, '') <> 'layby'
+              AND NOT EXISTS (SELECT 1 FROM laybys l WHERE l.transaction_id = t.id)
         """
         profit_branch_where, profit_params = branch_read_clause('t.branch_id')
         profit_query = profit_query + profit_branch_where
         profit_result = execute_query(profit_query, tuple(profit_params) if profit_params else None, fetch_one=True)
-        stats['total_profit'] = float(profit_result[0]) if profit_result else 0
+        # All-time recognised layby profit: every deposit/instalment received,
+        # including those still being paid off. All departments, like the sale
+        # sum above (the department switch never changed this figure).
+        try:
+            layby_profit_rows = _layby_recognised_activity(
+                date(1900, 1, 1), today, departments=list(DEPARTMENTS))
+            layby_profit = round(sum(r['profit'] for r in layby_profit_rows), 2)
+        except Exception as e:
+            print(f"Note: could not read recognised layby profit: {e}")
+            layby_profit = 0.0
+        stats['total_profit'] = (float(profit_result[0]) if profit_result else 0) + layby_profit
 
     return jsonify({'success': True, 'stats': stats})
 
@@ -24811,8 +25098,11 @@ def get_dashboard_stats():
 @login_required
 def today_by_cashier():
     """Today's sales grouped by cashier (lightweight aggregate for the POS header).
-    Mirrors get_dashboard_stats() semantics (the same half-open day range and
-    status='completed')."""
+
+    Mirrors get_dashboard_stats() semantics: the same half-open day range, the
+    same completed-sale rule, and layby money counted on the day it was
+    collected rather than the day the agreement closed.
+    """
     try:
         from collections import OrderedDict
         (revenue_sql, revenue_params), (items_sql, items_params), (takings_where, takings_params) = \
@@ -24831,6 +25121,9 @@ def today_by_cashier():
               AND t.created_at < CURRENT_DATE + 1
               AND t.status = 'completed'
               AND t.voided = FALSE
+              -- Layby receipts follow their payments, not their opening day.
+              AND COALESCE(t.payment_method, '') <> 'layby'
+              AND NOT EXISTS (SELECT 1 FROM laybys l WHERE l.transaction_id = t.id)
               -- A sale belongs to the department its LINES belong to: the header
               -- must show the selected shelf's takings, not the whole shop's.
               {takings_where}
@@ -24855,6 +25148,8 @@ def today_by_cashier():
               AND t.created_at < CURRENT_DATE + 1
               AND t.status = 'completed'
               AND t.voided = FALSE
+              AND COALESCE(t.payment_method, '') <> 'layby'
+              AND NOT EXISTS (SELECT 1 FROM laybys l WHERE l.transaction_id = t.id)
               {takings_where}
         """
         pm_where, pm_params = branch_read_clause('t.branch_id')
@@ -24884,6 +25179,31 @@ def today_by_cashier():
                     'payment_methods': {}
                 }
             cashier_map[pr[0]]['payment_methods'][pr[1] or 'other'] = float(pr[2] or 0)
+
+        # Add the layby money collected today, by the person who took it, so the
+        # cashier figures add up to the header's Today's Sales. A layby read that
+        # fails must not take the cashier panel down with it: the same reason
+        # get_dashboard_stats() treats this figure as best-effort.
+        today = get_zimbabwe_time().date()
+        try:
+            layby_today_rows = _layby_recognised_activity(today, today)
+        except Exception as e:
+            print(f"Note: could not read today's layby collections: {e}")
+            layby_today_rows = []
+        for lr in layby_today_rows:
+            cashier = lr['cashier'] or 'Unknown'
+            if cashier not in cashier_map:
+                cashier_map[cashier] = {
+                    'cashier': cashier,
+                    'total': 0.0,
+                    'transaction_count': 0,
+                    'items_sold': 0,
+                    'payment_methods': {}
+                }
+            cashier_map[cashier]['total'] += lr['revenue']
+            methods = cashier_map[cashier]['payment_methods']
+            methods['layby'] = round(methods.get('layby', 0.0) + lr['revenue'], 2)
+            cashier_map[cashier]['total'] = round(cashier_map[cashier]['total'], 2)
 
         cashiers = list(cashier_map.values())
         cashiers.sort(key=lambda c: c['total'], reverse=True)

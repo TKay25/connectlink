@@ -46,6 +46,10 @@ check('the Sales tab prices each sale from its own LINES',
       'lineRevenue' in report and 't.revenue = revenue' in report)
 check('a receipt with no lines still counts at its total',
       'Number(t.total) || 0' in report)
+check('layby money is recognised from the collections endpoint',
+      '/api/laybys/collections' in pos and 'laybyCollections' in report)
+check('a completed layby is never counted again at its receipt total',
+      "t.payment_method || '').toLowerCase() === 'layby'" in pos)
 
 try:
     from playwright.sync_api import sync_playwright
@@ -100,10 +104,39 @@ LAYB = {
          'subtotal': 40.0, 'buy_price': 30.0, 'cost_at_time': 30.0, 'category': 'DIY'},
     ],
 }
+# A layby whose balance was closed: the receipt is 'completed' and keeps its
+# opening date, but its money must still be counted only where it was received.
+LAYD = {
+    'id': 4, 'transaction_number': 'T4', 'user_id': 7, 'cashier': 'Mrs G Admin',
+    'subtotal': 100.0, 'tax': 0.0, 'total': 100.0, 'payment_method': 'layby',
+    'amount_paid': 100.0, 'change_amount': 0.0, 'status': 'completed',
+    'branch_name': 'Shurugwi',
+    'items': [
+        {'product_id': 10, 'product_name': 'Cement', 'quantity': 1, 'price': 100.0,
+         'subtotal': 100.0, 'buy_price': 60.0, 'cost_at_time': 60.0, 'category': 'DIY'},
+    ],
+}
 
 NOW = _dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-for row in (MIXED, FURN, LAYB):
+TODAY = NOW[:10]
+for row in (MIXED, FURN, LAYB, LAYD):
     row['created_at'] = NOW
+
+# What /api/laybys/collections answers: the actual deposits/instalments, each
+# carrying its share of the sale's frozen cost.
+COLLECTIONS = [
+    {'paid_at': NOW, 'day': TODAY, 'branch_id': 1, 'branch_name': 'Shurugwi',
+     'department': 'hardware', 'cashier': 'Mrs G Admin', 'method': 'cash',
+     'revenue': 40.0, 'cogs': 30.0, 'profit': 10.0},     # open layby's deposit
+    {'paid_at': NOW, 'day': TODAY, 'branch_id': 1, 'branch_name': 'Shurugwi',
+     'department': 'hardware', 'cashier': 'Mrs G Admin', 'method': 'cash',
+     'revenue': 100.0, 'cogs': 60.0, 'profit': 40.0},    # closed layby's money
+]
+
+
+def collections_for(dept):
+    return [c for c in COLLECTIONS
+            if dept == 'all' or c['department'] == dept]
 
 STATE = {'dept': 'all'}
 
@@ -111,7 +144,7 @@ STATE = {'dept': 'all'}
 def transactions_for(dept):
     """Mirror /api/transactions: only in-scope lines, only receipts that have one."""
     out = []
-    for row in (MIXED, FURN, LAYB):
+    for row in (MIXED, FURN, LAYB, LAYD):
         lines = [i for i in row['items']
                  if dept == 'all' or ('furniture' if i['category'] == 'Furniture' else 'hardware') == dept]
         if not lines:
@@ -154,6 +187,13 @@ class Handler(SimpleHTTPRequestHandler):
                                'department': {'key': dept}})
         if path == '/api/transactions':
             return self._json({'success': True, 'transactions': transactions_for(dept)})
+        if path == '/api/laybys/collections':
+            rows = collections_for(dept)
+            revenue = round(sum(r['revenue'] for r in rows), 2)
+            cogs = round(sum(r['cogs'] for r in rows), 2)
+            return self._json({'success': True, 'payments': rows,
+                               'totals': {'revenue': revenue, 'cogs': cogs,
+                                          'profit': round(revenue - cogs, 2)}})
         if path == '/api/dashboard/stats':
             return self._json({'success': True, 'stats': {
                 'today_sales': 0, 'items_sold': 0, 'low_stock_count': 0,
@@ -259,7 +299,8 @@ if srv is not None:
                         return el ? el.textContent.replace(/\\s+/g, ' ').trim() : 'MISSING:' + id;
                     };
                     return {sales: t('reportTotalSales'), items: t('reportItemsSold'),
-                            profit: t('reportGrossProfit'), tx: t('reportTransactionCount')};
+                            profit: t('reportGrossProfit'), tx: t('reportTransactionCount'),
+                            avg: t('reportAvgOrder')};
                 }""")
 
             page.evaluate("() => window.navigateTo('sales')")
@@ -270,27 +311,35 @@ if srv is not None:
                     return el ? el.textContent.replace(/\\s+/g, ' ').trim() : 'MISSING:' + id;
                 };
                 return {sales: t('reportTotalSales'), items: t('reportItemsSold'),
-                        profit: t('reportGrossProfit'), tx: t('reportTransactionCount')};
+                        profit: t('reportGrossProfit'), tx: t('reportTransactionCount'),
+                        avg: t('reportAvgOrder')};
             }""")
-            check('All view: the tab reports the whole shop (mixed basket once)',
-                  all_view == {'sales': 'USD 1,290.75', 'items': '6',
-                               'profit': 'USD 530.75', 'tx': '2'},
+            check('All view: completed sales plus the layby money received',
+                  all_view == {'sales': 'USD 1,430.75', 'items': '6',
+                           'profit': 'USD 580.75', 'tx': '2',
+                           'avg': 'USD 645.38'},
                   all_view)
 
             hw = read_after('hardware')
-            check('Hardware view: only the Hardware lines of the mixed basket count',
-                  hw == {'sales': 'USD 100.00', 'items': '1',
-                         'profit': 'USD 40.00', 'tx': '1'},
+            check('Hardware view: its sale lines plus its layby collections',
+                  hw == {'sales': 'USD 240.00', 'items': '1',
+                         'profit': 'USD 90.00', 'tx': '1',
+                         'avg': 'USD 100.00'},
                   hw)
 
             fur = read_after('furniture')
-            check('Furniture view: its own lines, and the furniture-only sale',
+            check('Furniture view: its own lines, and no Hardware layby money',
                   fur == {'sales': 'USD 1,190.75', 'items': '5',
-                          'profit': 'USD 490.75', 'tx': '2'},
+                          'profit': 'USD 490.75', 'tx': '2',
+                          'avg': 'USD 595.38'},
                   fur)
 
-            check('the layby deposit never reaches the sales report',
-                  '40' not in all_view['sales'].replace('1,290.75', ''), all_view['sales'])
+            check('a completed layby is not added again at its receipt total',
+                  all_view['sales'] == 'USD 1,430.75', all_view['sales'])
+            check('layby money adds revenue without inventing sold units or orders',
+                  all_view['items'] == '6' and all_view['tx'] == '2', all_view)
+            check('the average sale stays a sale, not an instalment',
+                  all_view['avg'] == 'USD 645.38', all_view['avg'])
             check('no page script error was thrown', not errors, errors[:3] or 'clean')
             browser.close()
     except Exception as exc:                                              # noqa: BLE001
