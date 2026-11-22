@@ -25201,8 +25201,14 @@ def today_by_cashier():
                     'payment_methods': {}
                 }
             cashier_map[cashier]['total'] += lr['revenue']
+            # Bucketed by the method it was PAID BY, exactly as day-end does:
+            # cash handed over against a layby is cash in the drawer, so the
+            # header's Cash figure and day-end's must not drift apart.
             methods = cashier_map[cashier]['payment_methods']
-            methods['layby'] = round(methods.get('layby', 0.0) + lr['revenue'], 2)
+            method = (lr['method'] or 'layby').lower()
+            methods[method] = round(methods.get(method, 0.0) + lr['revenue'], 2)
+            cashier_map[cashier]['layby_collected'] = round(
+                cashier_map[cashier].get('layby_collected', 0.0) + lr['revenue'], 2)
             cashier_map[cashier]['total'] = round(cashier_map[cashier]['total'], 2)
 
         cashiers = list(cashier_map.values())
