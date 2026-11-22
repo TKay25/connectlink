@@ -8371,6 +8371,10 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         Collected to date = deposits and instalments &middot;
                         Paid off = goods released
                     </div>
+                    <!-- Says out loud when the filter hides agreements, so a layby
+                         whose money is already in the Sales & Profit report can
+                         never look like it went missing from this page. -->
+                    <div id="laybyFilterNote" class="small mb-2" style="display:none;line-height:1.35;"></div>
 
                     <div id="laybyListContainer">
                         <p class="text-muted small mb-0">Loading laybys...</p>
@@ -24524,7 +24528,42 @@ function setupEventListeners() {
             ? list.map(laybyCard).join('')
             : (pendingHtml ? '' : '<p class="text-muted small mb-0">No laybys to show here yet.</p>');
         document.getElementById('laybyListContainer').innerHTML = pendingHtml + listHtml;
+        renderLaybyFilterNote(s, list.length);
     }
+
+    // The stat strip counts every agreement in the branch, so the list can be
+    // shorter than the strip. Saying so out loud - and offering the way out -
+    // is what stops a paid-off layby's money, which the Sales & Profit report
+    // has already recognised by the date it was received, from looking missing.
+    function renderLaybyFilterNote(s, shown) {
+        var el = document.getElementById('laybyFilterNote');
+        if (!el) return;
+        var filter = document.getElementById('laybyStatusFilter');
+        var on = filter ? filter.value : '';
+        var total = Number(s.total || 0);
+        if (!on || total <= Number(shown || 0)) {
+            el.style.display = 'none';
+            el.innerHTML = '';
+            return;
+        }
+        var parts = [];
+        if (on !== 'active' && s.active) parts.push(s.active + ' active');
+        if (on !== 'completed' && s.completed) parts.push(s.completed + ' paid off');
+        if (on !== 'cancelled' && s.cancelled) parts.push(s.cancelled + ' cancelled');
+        el.innerHTML = '<i class="fas fa-circle-info me-1"></i>' +
+            'Showing ' + shown + ' of ' + total + ' laybys' +
+            (parts.length ? ' &mdash; ' + parts.join(', ') + ' are not in this list' : '') +
+            '. Their deposits and instalments still appear in the Sales &amp; Profit ' +
+            'report on the dates the money was received. ' +
+            '<a href="#" onclick="showAllLaybys();return false;">Show all laybys</a>';
+        el.style.display = 'block';
+    }
+
+    window.showAllLaybys = function () {
+        var sel = document.getElementById('laybyStatusFilter');
+        if (sel) sel.value = '';
+        if (typeof window.fetchLaybys === 'function') window.fetchLaybys();
+    };
 
     // Laybys (and their instalments) that were taken with no connection and are
     // still on this device. A blocked one carries the server's reason and is

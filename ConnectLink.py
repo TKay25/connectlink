@@ -18271,21 +18271,56 @@ def pos_list_laybys():
             cursor.execute(sql, tuple(params) or None)
             laybys = [_serialize_layby(cursor, r) for r in cursor.fetchall()]
 
-        active = [x for x in laybys if x['status'] == 'active']
+            # The stat strip describes the WHOLE branch, not whatever slice the
+            # list filter happens to show. Counting it from the filtered rows made
+            # "Paid off" read 0 the moment "Active laybys" was selected, so money
+            # the Sales & Profit report had already recognised as received looked
+            # like it had gone missing from the layby page.
+            stat_sql = """
+                SELECT COUNT(*) FILTER (WHERE l.status = 'active'),
+                       COUNT(*) FILTER (WHERE l.status = 'completed'),
+                       COUNT(*) FILTER (WHERE l.status = 'cancelled'),
+                       COUNT(*),
+                       COALESCE(SUM(CASE WHEN l.status = 'active'
+                                         THEN GREATEST(l.total_amount - COALESCE(m.paid, 0), 0)
+                                         ELSE 0 END), 0),
+                       COALESCE(SUM(COALESCE(m.paid, 0) - COALESCE(m.refunded, 0)), 0),
+                       COALESCE(SUM(COALESCE(m.refunded, 0)), 0)
+                FROM laybys l
+                LEFT JOIN (
+                    SELECT layby_id,
+                           SUM(CASE WHEN COALESCE(kind, 'payment') = 'refund'
+                                    THEN 0 ELSE amount END) AS paid,
+                           SUM(CASE WHEN COALESCE(kind, 'payment') = 'refund'
+                                    THEN amount ELSE 0 END) AS refunded
+                    FROM layby_payments
+                    GROUP BY layby_id
+                ) m ON m.layby_id = l.id
+                WHERE 1 = 1
+            """
+            stat_where, stat_params = branch_read_clause('l.branch_id')
+            cursor.execute(stat_sql + stat_where, tuple(stat_params) or None)
+            stats = cursor.fetchone() or (0, 0, 0, 0, 0, 0, 0)
+
         return jsonify({
             'success': True,
             'read_only': branch_is_read_only(),
             'branch': {'id': current_branch_id(), 'name': session.get('branch_name') or ''},
             'laybys': laybys,
             'summary': {
-                'total': len(laybys),
-                'active': len(active),
-                'completed': sum(1 for x in laybys if x['status'] == 'completed'),
-                'cancelled': sum(1 for x in laybys if x['status'] == 'cancelled'),
-                'outstanding': round(sum(x['balance'] for x in active), 2),
-                # Net of refunds: what the shop is actually holding.
-                'collected': round(sum(x['net_collected'] for x in laybys), 2),
-                'refunded': round(sum(x['refunded_amount'] for x in laybys), 2)
+                'total': int(stats[3] or 0),
+                'shown': len(laybys),
+                'active': int(stats[0] or 0),
+                'completed': int(stats[1] or 0),
+                'cancelled': int(stats[2] or 0),
+                # Still to collect is an active-agreement figure: a paid-off or
+                # cancelled layby owes nothing, whatever is left on its old plan.
+                'outstanding': round(float(stats[4] or 0), 2),
+                # Net of refunds: what the shop is actually holding, across every
+                # agreement - which is what the Sales & Profit report recognises
+                # by the dates the money came in.
+                'collected': round(float(stats[5] or 0), 2),
+                'refunded': round(float(stats[6] or 0), 2)
             }
         })
     except Exception as e:
