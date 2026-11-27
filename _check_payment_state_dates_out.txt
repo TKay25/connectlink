@@ -1,0 +1,9 @@
+PASS  a mistyped year no longer aborts the projects dashboard
+PASS  installment dates are held at day resolution  -> (dtype('<M8[D]'), dtype('<M8[D]'))
+PASS  only the installment due today (unpaid) is overdue  -> [True, False, False, False, False, False]
+PASS  the overdue amount is that installment only  -> [200.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+PASS  due today counts for the status table but not for the cards
+PASS  a mistyped year still reads as a paid installment
+PASS  deposit + paid installments is unchanged  -> [100.0, 0.0, 200.0, 1076.67, 163.0, 400.0]
+PASS  settled projects with money still owed stay Outstanding, not Overdue  -> ([False, False, True, False, True, True], [0.0, 0.0, 800.0, 0.0, 837.0, 600.0])
+PASS  an empty portfolio still returns usable shapes  -> ((0, 10), (0,))

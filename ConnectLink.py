@@ -25834,7 +25834,10 @@ def Dashboard():
                 print(f"Dashboard error: {e}")
                 print(traceback.format_exc())
 
-                return render_template('mainindex.html')
+                # Do NOT fall back to the landing page here: a signed-in user who
+                # is sent back to the portal only sees "login did not work" and
+                # keeps re-entering credentials. Let the error surface instead.
+                raise
 
         else:
                 return render_template('mainindex.html')
@@ -36869,19 +36872,23 @@ def compute_payment_state(df):
     """
     n = len(df)
     amounts = np.zeros((n, 10), dtype=float)
-    due = np.full((n, 10), np.datetime64('NaT'), dtype='datetime64[ns]')
-    paid = np.full((n, 10), np.datetime64('NaT'), dtype='datetime64[ns]')
+    # Day resolution, not nanoseconds: the date columns are hand-entered, and a
+    # mistyped year (e.g. 0026-03-31 for 2026-03-31) is outside datetime64[ns]
+    # and made the whole dashboard die and fall back to the landing page.
+    # datetime64[D] covers every date Postgres can store.
+    due = np.full((n, 10), np.datetime64('NaT'), dtype='datetime64[D]')
+    paid = np.full((n, 10), np.datetime64('NaT'), dtype='datetime64[D]')
 
     for i in range(1, 11):
         amounts[:, i - 1] = np.nan_to_num(
             pd.to_numeric(df[f'installment{i}amount'], errors='coerce').to_numpy(dtype=float),
             nan=0.0,
         )
-        due[:, i - 1] = pd.to_datetime(df[f'installment{i}duedate'], errors='coerce').to_numpy(dtype='datetime64[ns]')
-        paid[:, i - 1] = pd.to_datetime(df[f'installment{i}date'], errors='coerce').to_numpy(dtype='datetime64[ns]')
+        due[:, i - 1] = pd.to_datetime(df[f'installment{i}duedate'], errors='coerce').to_numpy(dtype='datetime64[D]')
+        paid[:, i - 1] = pd.to_datetime(df[f'installment{i}date'], errors='coerce').to_numpy(dtype='datetime64[D]')
 
-    due_naive = due.astype('datetime64[D]')
-    paid_naive = paid.astype('datetime64[D]')
+    due_naive = due
+    paid_naive = paid
     today = np.datetime64(datetime.now().date(), 'D')
 
     has_due = ~np.isnat(due)
@@ -36890,7 +36897,7 @@ def compute_payment_state(df):
     # the status table compared against datetime.now(), so an installment due
     # today already counts as overdue there, while the payment cards compared
     # dates, so it does not.
-    overdue_inst_now = has_due & ~is_paid & (due < np.datetime64(datetime.now(), 'us'))
+    overdue_inst_now = has_due & ~is_paid & (due_naive <= today)
     overdue_inst = has_due & ~is_paid & (due_naive < today)
 
     overdue_amount = np.where(overdue_inst_now, amounts, 0.0).sum(axis=1)

@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckPaymentStateDates",
+  "file": "_check_payment_state_dates.py",
+  "purpose": "Prove the projects dashboard survives hand-entered dates it cannot trust.",
+  "entry_function": "check(name, ok, detail = '')",
+  "entry_flows": [
+    "_check_payment_state_dates → environ.pop, RESULTS.append, fh.write, types.ModuleType, modules.setdefault"
+  ],
+  "public_api": [
+    "check(name, ok, detail = '')",
+    "make_row(pid, contract, deposit, installments)"
+  ],
+  "dependencies": [
+    "ConnectLink",
+    "numpy",
+    "pandas"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), OUT = os.path.join(ROOT, '_check_payment_state_dates_out.txt'), RESULTS = [], COLS = ConnectLink.PAYMENT_DF_COLUMNS",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "29bc58d423c3c249",
+  "file_mtime": 1795804043545.9753,
+  "file_size": 5922,
+  "file_birthtime": 1795804043543.5505,
+  "generated_at": "2026-11-27T18:27:28.067284Z",
+  "stale": false
+}
