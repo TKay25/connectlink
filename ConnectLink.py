@@ -36825,6 +36825,131 @@ def get_sent_reminders():
             'reminders': []
         }), 500
 
+# ---------------------------------------------------------------------------
+# Payment / installment state for the whole portfolio
+# ---------------------------------------------------------------------------
+# The dashboard cards and the installment audit used to slice the newest 200
+# rows (SELECT ... LIMIT 200) and then walk them row by row in Python, so every
+# figure silently stopped tracking the portfolio once it passed 200 projects.
+# These helpers read only the payment columns, for every project, in one query,
+# and evaluate the 10 installments with numpy so the cost stays flat as the
+# portfolio grows.
+PAYMENT_DF_COLUMNS = [
+    'id', 'clientname', 'clientwanumber', 'projectname',
+    'totalcontractamount', 'depositorbullet',
+] + [f'installment{i}{suffix}' for i in range(1, 11) for suffix in ('amount', 'duedate', 'date')]
+
+
+def fetch_payment_df(cursor):
+    """Every project, payment columns only - one round trip, no wide text fields."""
+    cursor.execute(
+        f"SELECT {', '.join(PAYMENT_DF_COLUMNS)} FROM connectlinkdatabase ORDER BY id DESC"
+    )
+    return pd.DataFrame(cursor.fetchall(), columns=PAYMENT_DF_COLUMNS)
+
+
+def compute_payment_state(df):
+    """Vectorised installment state for every row of a fetch_payment_df frame.
+
+    Returns a dict of numpy arrays, one entry per project:
+        amounts                   - (projects x 10) installment amounts, nulls as 0
+        due_naive, paid_naive     - (projects x 10) date-only due / paid matrices
+        has_due, is_paid          - (projects x 10) masks
+        overdue_inst              - (projects x 10) unpaid and past due (date basis)
+        overdue_inst_now          - same, but an installment due today already counts
+        overdue_amount            - sum of the overdue installments
+        is_overdue                - has at least one overdue installment
+        is_outstanding            - all scheduled installments paid but money still owed
+        outstanding_balance       - that remaining amount (0 when not outstanding)
+        total_paid                - deposit + paid installments
+        contract, remaining       - contract amount and contract - total_paid
+        last_payment_date         - latest paid installment date (NaT when none)
+        installments_due          - "1, 3" style list of unpaid installments, or "None"
+        unpaid_scheduled, all_paid - per-project installment settlement rollups
+    """
+    n = len(df)
+    amounts = np.zeros((n, 10), dtype=float)
+    due = np.full((n, 10), np.datetime64('NaT'), dtype='datetime64[ns]')
+    paid = np.full((n, 10), np.datetime64('NaT'), dtype='datetime64[ns]')
+
+    for i in range(1, 11):
+        amounts[:, i - 1] = np.nan_to_num(
+            pd.to_numeric(df[f'installment{i}amount'], errors='coerce').to_numpy(dtype=float),
+            nan=0.0,
+        )
+        due[:, i - 1] = pd.to_datetime(df[f'installment{i}duedate'], errors='coerce').to_numpy(dtype='datetime64[ns]')
+        paid[:, i - 1] = pd.to_datetime(df[f'installment{i}date'], errors='coerce').to_numpy(dtype='datetime64[ns]')
+
+    due_naive = due.astype('datetime64[D]')
+    paid_naive = paid.astype('datetime64[D]')
+    today = np.datetime64(datetime.now().date(), 'D')
+
+    has_due = ~np.isnat(due)
+    is_paid = ~np.isnat(paid)
+    # Two views of "overdue", matching the two the dashboard always had:
+    # the status table compared against datetime.now(), so an installment due
+    # today already counts as overdue there, while the payment cards compared
+    # dates, so it does not.
+    overdue_inst_now = has_due & ~is_paid & (due < np.datetime64(datetime.now(), 'us'))
+    overdue_inst = has_due & ~is_paid & (due_naive < today)
+
+    overdue_amount = np.where(overdue_inst_now, amounts, 0.0).sum(axis=1)
+    is_overdue = overdue_inst_now.any(axis=1)
+
+    scheduled = amounts > 0
+    unpaid_scheduled = scheduled & ~is_paid
+    all_paid = ~unpaid_scheduled.any(axis=1)
+
+    deposit = np.nan_to_num(
+        pd.to_numeric(df['depositorbullet'], errors='coerce').to_numpy(dtype=float), nan=0.0)
+    contract = np.nan_to_num(
+        pd.to_numeric(df['totalcontractamount'], errors='coerce').to_numpy(dtype=float), nan=0.0)
+    paid_sum = np.where(scheduled & is_paid, amounts, 0.0).sum(axis=1)
+    total_paid = deposit + paid_sum
+
+    remaining = contract - total_paid
+    # Same arithmetic the row-by-row version used: the balance is only carried
+    # when nothing is overdue and every scheduled installment is settled.
+    outstanding_balance = np.where((~is_overdue) & all_paid & (contract > total_paid), remaining, 0.0)
+    is_outstanding = outstanding_balance > 0.01
+    # Latest paid installment date per project, NaT when nothing is paid yet
+    any_paid_scheduled = (scheduled & is_paid).any(axis=1)
+    last_payment_date = np.full(n, np.datetime64('NaT', 'D'), dtype='datetime64[D]')
+    if any_paid_scheduled.any():
+        masked_paid = np.where(scheduled & is_paid, paid_naive, np.datetime64('NaT', 'D'))
+        last_payment_date[any_paid_scheduled] = masked_paid[any_paid_scheduled].max(axis=1)
+
+    labels = np.arange(1, 11).astype(str)
+    unpaid_due = has_due & ~is_paid
+    if n:
+        installments_due = np.array([
+            ", ".join(labels[row]) if row.any() else "None" for row in unpaid_due
+        ])
+    else:
+        installments_due = np.array([], dtype=object)
+
+    return {
+        'amounts': amounts,
+        'due_naive': due_naive,
+        'paid_naive': paid_naive,
+        'has_due': has_due,
+        'is_paid': is_paid,
+        'overdue_inst': overdue_inst,
+        'overdue_inst_now': overdue_inst_now,
+        'overdue_amount': overdue_amount,
+        'is_overdue': is_overdue,
+        'is_outstanding': is_outstanding,
+        'outstanding_balance': outstanding_balance,
+        'total_paid': total_paid,
+        'contract': contract,
+        'remaining': remaining,
+        'last_payment_date': last_payment_date,
+        'installments_due': installments_due,
+        'unpaid_scheduled': unpaid_scheduled,
+        'all_paid': all_paid,
+    }
+
+
 def run1(userid):
 
     update_project_completion_status()
@@ -36962,34 +37087,45 @@ def run1(userid):
                 connection.commit()
         except Exception as repair_err:
             print(f"Note: date repair skipped: {repair_err}")
+        # Dashboard totals cover every project, so they are aggregated in SQL.
+        # The 200-row page below is only the first screen of the projects table.
+        cursor.execute("""
+            SELECT
+                COUNT(*),
+                COUNT(*) FILTER (WHERE projectcompletionstatus = 'Ongoing'),
+                COUNT(*) FILTER (WHERE projectcompletionstatus = 'Completed'),
+                AVG(projectduration)
+            FROM connectlinkdatabase
+        """)
+        total_projects, ongoing_projects, completed_projects, avg_duration = cursor.fetchone()
+        num_projects = int(total_projects or 0)
+        count_ongoing = int(ongoing_projects or 0)
+        count_completed = int(completed_projects or 0)
+        count_other = num_projects - count_ongoing - count_completed
+        average_duration = round(float(avg_duration), 0) if avg_duration is not None else 0
+
+        # Locations chart is a whole-portfolio view as well; MAX(id) ordering keeps
+        # the same "newest project first" label order the projects table uses.
+        cursor.execute("""
+            SELECT projectlocation, COUNT(*)
+            FROM connectlinkdatabase
+            WHERE projectlocation IS NOT NULL AND BTRIM(projectlocation) <> ''
+            GROUP BY projectlocation
+            ORDER BY MAX(id) DESC
+        """)
+        location_rows = cursor.fetchall()
+        locations_list = [row[0] for row in location_rows]
+        frequencies_list = [int(row[1]) for row in location_rows]
+        most_frequent_location = max(location_rows, key=lambda row: row[1])[0] if location_rows else 'N/A'
+
         # Only select needed columns to minimize memory - avoid large text fields if possible
         maindataquery = f"SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
 
-        num_projects = len(maindata)
-
         # Use the actual column names from the database
         datamain = pd.DataFrame(maindata, columns=column_names)
-
-        # Get just the column statistics
-        count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
-        count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
-        count_other = datamain[(datamain["projectcompletionstatus"] != "Ongoing") & (datamain["projectcompletionstatus"] != "Completed")].shape[0]
-        average_duration = round(pd.to_numeric(datamain["projectduration"], errors="coerce").mean(),0)
-        locations = datamain['projectlocation'].replace('', pd.NA)
-
-        locations2 = datamain['projectlocation'].dropna().astype(str)  # remove None/NaN, ensure string
-        location_counts = Counter(locations2)
-
-        # Convert to lists for Jinja
-        locations_list = list(location_counts.keys())
-        frequencies_list = list(location_counts.values())
-
-        # Get the most frequent location
-        loc_counts = locations.value_counts(dropna=True)
-        most_frequent_location = loc_counts.idxmax() if not loc_counts.empty else 'N/A'
 
         # ===== CRITICAL: Process columns in correct order =====
         # Step 1: Process dates first
@@ -37089,117 +37225,15 @@ def run1(userid):
         month_options_list.append({'display': 'All', 'value': 'all', 'date': None})
         enquiries_data = get_enquiries_data()
         
-        datamain2 = datamain
-
-
-        date_columns = ['installment1duedate', 'installment2duedate', 'installment3duedate',
-                        'installment4duedate', 'installment5duedate', 'installment6duedate',
-                        'installment7duedate', 'installment8duedate', 'installment9duedate', 'installment10duedate',
-                        'installment1date', 'installment2date', 'installment3date',
-                        'installment4date', 'installment5date', 'installment6date',
-                        'installment7date', 'installment8date', 'installment9date', 'installment10date']
-
-        for col in date_columns:
-            if col in datamain2.columns:
-                datamain2[col] = pd.to_datetime(datamain2[col], errors='coerce')
-
-        # Get current date
-        current_date = datetime.now()
-
-        # Function to check payment status and calculate overdue amount
-        def get_payment_status(row):
-            total_overdue = 0
-            is_overdue = False
-            is_outstanding = False
-            outstanding_balance = 0
-            
-            # Check each installment (1-10)
-            for i in range(1, 11):
-                due_date_col = f'installment{i}duedate'
-                paid_date_col = f'installment{i}date'
-                amount_col = f'installment{i}amount'
-                
-                if pd.notna(row.get(due_date_col)):
-                    due_date = row[due_date_col]
-                    amount = row.get(amount_col, 0) or 0
-                    
-                    # Check if paid
-                    is_paid = pd.notna(row.get(paid_date_col))
-                    
-                    # If not paid and due date passed
-                    if not is_paid and due_date < current_date:
-                        total_overdue += amount
-                        is_overdue = True
-            
-            # Check for outstanding payments (all installments paid but balance still due)
-            if not is_overdue:
-                try:
-                    contract_amount = float(row.get('totalcontractamount', 0) or 0)
-                    deposit = float(row.get('depositorbullet', 0) or 0)
-                    
-                    # Calculate total paid (deposit + all paid installments)
-                    total_paid = deposit
-                    all_installments_paid = True
-                    
-                    for i in range(1, 11):
-                        paid_date_col = f'installment{i}date'
-                        amount_col = f'installment{i}amount'
-                        
-                        amount = row.get(amount_col, 0) or 0
-                        if amount > 0:
-                            is_paid = pd.notna(row.get(paid_date_col))
-                            if is_paid:
-                                total_paid += amount
-                            else:
-                                all_installments_paid = False
-                    
-                    # Check if all installments are paid but balance remains
-                    # Only mark as outstanding if balance is more than 0.01 (avoid floating point precision issues)
-                    if all_installments_paid and contract_amount > total_paid:
-                        outstanding_balance = contract_amount - total_paid
-                        if outstanding_balance > 0.01:
-                            is_outstanding = True
-                except:
-                    pass
-            
-            return total_overdue, is_overdue, is_outstanding, outstanding_balance
-
-        # Calculate status for each row
-        datamain2['overdue_amount'], datamain2['is_overdue'], datamain2['is_outstanding'], datamain2['outstanding_balance'] = zip(*datamain2.apply(get_payment_status, axis=1))
-
-        # Simple version - just show installment numbers
-        def get_simple_installments_due(row):
-            due_installments = []
-            
-            for i in range(1, 11):
-                due_date_col = f'installment{i}duedate'
-                paid_date_col = f'installment{i}date'
-                
-                if pd.notna(row.get(due_date_col)):
-                    due_date = row[due_date_col]
-                    is_paid = pd.notna(row.get(paid_date_col))
-                    
-                    if not is_paid:
-                        due_installments.append(str(i))
-            
-            if due_installments:
-                return ", ".join(due_installments)
-            return "None"
-
-        # Add to your existing calculation
-        datamain2['installments_due_simple'] = datamain2.apply(get_simple_installments_due, axis=1)
-
-        # Update table_data with simple installment info
-        for _, row in datamain2.iterrows():
-            status_html = ""
-            
-            if row['is_overdue']:
-                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">USD {row['overdue_amount']:,.2f}</span></div>"""
-            else:
-                status_html = '<span class="badge bg-success">PAID UP</span>'
-            
-            # Simple installment display
-            installments_html = f'<span class="badge bg-info">{row["installments_due_simple"]}</span>'
+        # Payment state covers the whole portfolio, not just the 200 rows the
+        # projects table shows. It is computed once here and reused by the
+        # payment cards and the payment status table.
+        payment_df = fetch_payment_df(cursor)
+        payment_state = compute_payment_state(payment_df)
+        overdue_amount = payment_state['overdue_amount']
+        is_overdue = payment_state['is_overdue']
+        is_outstanding = payment_state['is_outstanding']
+        outstanding_balance = payment_state['outstanding_balance']
 
         # Function to format phone number
         def format_phone_number(phone):
@@ -37234,39 +37268,31 @@ def run1(userid):
                     return f"263 {phone_clean}"
             
         # Create the display table
-        table_data = []
+        amount_text = np.array([f"{value:,.2f}" for value in overdue_amount], dtype=object)
+        outstanding_text = np.array([f"{value:,.2f}" for value in outstanding_balance], dtype=object)
+        status_values = np.where(
+            is_overdue,
+            '<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">USD ' + amount_text + '</span></div>',
+            np.where(
+                is_outstanding,
+                '<div class="d-flex align-items-center"><span class="badge bg-info me-2">OUTSTANDING</span><span class="text-info fw-bold">USD ' + outstanding_text + '</span></div>',
+                '<span class="badge bg-success">PAID UP</span>',
+            ),
+        )
+        installments_text = np.array(
+            ['<span class="badge bg-info">' + value + '</span>' for value in payment_state['installments_due']],
+            dtype=object,
+        )
 
-        for _, row in datamain2.iterrows():
-            status_html = ""
-            
-            if row['is_overdue']:
-                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">USD {row['overdue_amount']:,.2f}</span></div>"""
-            elif row['is_outstanding']:
-                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-info me-2">OUTSTANDING</span><span class="text-info fw-bold">USD {row['outstanding_balance']:,.2f}</span></div>"""
-            else:
-                status_html = '<span class="badge bg-success">PAID UP</span>'
-            
-            installments_html = f'<span class="badge bg-info">{row["installments_due_simple"]}</span>'
-
-            formatted_phone = format_phone_number(row['clientwanumber'])
-
-            table_data.append({
-                'project id': row['id'],
-                'client name': row['clientname'],
-                'client phone': formatted_phone,
-                'project_name': row['projectname'],
-                'overdue_amount': row['overdue_amount'],
-                'status': status_html,
-                'installments due': installments_html
-            })
-
-        # Create DataFrame for table
-        status_df = pd.DataFrame(table_data)
-
-        # Sort by overdue amount and outstanding balance (descending)
-        status_df['sort_amount'] = status_df.apply(lambda row: 
-                                                   row['overdue_amount'] if row['overdue_amount'] > 0 
-                                                   else row.get('outstanding_balance', 0), axis=1)
+        status_df = pd.DataFrame({
+            'project id': payment_df['id'].to_numpy(),
+            'client name': payment_df['clientname'].to_numpy(),
+            'client phone': payment_df['clientwanumber'].map(format_phone_number).to_numpy(),
+            'project_name': payment_df['projectname'].to_numpy(),
+            'status': status_values,
+            'installments due': installments_text,
+            'sort_amount': np.where(overdue_amount > 0, overdue_amount, 0.0),
+        })
         status_df = status_df.sort_values('sort_amount', ascending=False)
         status_df = status_df[['project id','client name', 'client phone', 'project_name', 'status', 'installments due']]
 
@@ -37278,145 +37304,83 @@ def run1(userid):
         start_of_month = current_date.replace(day=1)
         start_of_year = current_date.replace(month=1, day=1)
 
-        # Function to calculate paid and overdue amounts for specific time periods
-        def calculate_payment_stats(df):
-            # Track amounts
-            stats = {
-                'today_paid': 0,
-                'today_overdue': 0,
-                'week_paid': 0,
-                'week_overdue': 0,
-                'month_paid': 0,
-                'month_overdue': 0,
-                'year_paid': 0,
-                'year_overdue': 0,
-                'total_overdue': df['overdue_amount'].sum(),
-                # Track project counts (using sets for unique project IDs)
-                'today_paid_projects': set(),
-                'today_overdue_projects': set(),
-                'week_paid_projects': set(),
-                'week_overdue_projects': set(),
-                'month_paid_projects': set(),
-                'month_overdue_projects': set(),
-                'year_paid_projects': set(),
-                'year_overdue_projects': set(),
-                'total_overdue_projects': set()
-            }
-            
-            # Calculate amounts based on payment dates
-            for _, row in df.iterrows():
-                project_id = row.get('id', 0)
-                
-                # Check each installment (1-10)
-                for i in range(1, 11):
-                    due_date_col = f'installment{i}duedate'
-                    paid_date_col = f'installment{i}date'
-                    amount_col = f'installment{i}amount'
-                    
-                    if due_date_col in row and pd.notna(row[due_date_col]):
-                        due_date = row[due_date_col].date()
-                        amount = row.get(amount_col, 0) or 0
-                        paid_date = row.get(paid_date_col)
-                        
-                        # Check if paid
-                        if pd.notna(paid_date):
-                            paid_date_dt = paid_date.date()
-                            
-                            # TODAY PAID: Payments made today
-                            if paid_date_dt == current_date:
-                                stats['today_paid'] += amount
-                                stats['today_paid_projects'].add(project_id)
-                            
-                            # WEEK PAID: Payments made this week (Monday to today)
-                            if paid_date_dt >= start_of_week:
-                                stats['week_paid'] += amount
-                                stats['week_paid_projects'].add(project_id)
-                            
-                            # MONTH PAID: Payments made this month
-                            if paid_date_dt >= start_of_month:
-                                stats['month_paid'] += amount
-                                stats['month_paid_projects'].add(project_id)
-                            
-                            # YEAR PAID: Payments made this year
-                            if paid_date_dt >= start_of_year:
-                                stats['year_paid'] += amount
-                                stats['year_paid_projects'].add(project_id)
-                        
-                        # Check for overdue (not paid and past due date)
-                        else:
-                            if due_date < current_date:
-                                # TODAY OVERDUE: Became overdue today
-                                if due_date == current_date:
-                                    stats['today_overdue'] += amount
-                                    stats['today_overdue_projects'].add(project_id)
-                                
-                                # WEEK OVERDUE: Became overdue this week
-                                if due_date >= start_of_week:
-                                    stats['week_overdue'] += amount
-                                    stats['week_overdue_projects'].add(project_id)
-                                
-                                # MONTH OVERDUE: Became overdue this month
-                                if due_date >= start_of_month:
-                                    stats['month_overdue'] += amount
-                                    stats['month_overdue_projects'].add(project_id)
-                                
-                                # YEAR OVERDUE: Became overdue this year
-                                if due_date >= start_of_year:
-                                    stats['year_overdue'] += amount
-                                    stats['year_overdue_projects'].add(project_id)
-            
-            # Also track total overdue projects count
-            for _, row in df.iterrows():
-                if row.get('is_overdue', False):
-                    stats['total_overdue_projects'].add(row.get('id', 0))
-            
-            # Convert sets to counts for JSON serialization
-            for key in list(stats.keys()):
-                if isinstance(stats[key], set):
-                    stats[key] = len(stats[key])
-            
-            return stats
+        # Paid / overdue totals for today, this week, month and year.
+        # Masks over the whole installment matrix keep this flat as projects grow.
+        today_np = np.datetime64(current_date, 'D')
+        week_np = np.datetime64(start_of_week, 'D')
+        month_np = np.datetime64(start_of_month, 'D')
+        year_np = np.datetime64(start_of_year, 'D')
 
-        # Calculate payment statistics
-        payment_stats = calculate_payment_stats(datamain2)
+        amounts = payment_state['amounts']
+        due_naive = payment_state['due_naive']
+        paid_naive = payment_state['paid_naive']
+        has_due = payment_state['has_due']
+        is_paid_inst = payment_state['is_paid']
+        overdue_inst = payment_state['overdue_inst']
+        overdue_inst_now = payment_state['overdue_inst_now']
+        project_ids = payment_df['id'].to_numpy()
 
-        # Calculate total due = total overdue + future installments (everything still owed)
-        future_due = 0.0
-        for _, row in datamain2.iterrows():
-            for i in range(1, 11):
-                due_date_col = f'installment{i}duedate'
-                amount_col = f'installment{i}amount'
-                
-                if due_date_col in row and pd.notna(row[due_date_col]):
-                    due_date = row[due_date_col].date()
-                    amount = row.get(amount_col, 0) or 0
-                    
-                    # Count installments due today or in the future
-                    if due_date >= current_date:
-                        future_due += float(amount)
+        def period_amount(mask):
+            return float(np.where(mask, amounts, 0.0).sum())
 
-        # Total Due = overdue (unpaid past-due) + future installments + outstanding balances
-        outstanding_total = float(datamain2['outstanding_balance'].sum()) if 'outstanding_balance' in datamain2.columns else 0
+        def period_projects(mask):
+            return int(np.unique(project_ids[np.any(mask, axis=1)]).size)
+
+        paid_inst = has_due & is_paid_inst
+        today_paid_mask = paid_inst & (paid_naive == today_np)
+        week_paid_mask = paid_inst & (paid_naive >= week_np)
+        month_paid_mask = paid_inst & (paid_naive >= month_np)
+        year_paid_mask = paid_inst & (paid_naive >= year_np)
+        today_overdue_mask = overdue_inst & (due_naive == today_np)
+        week_overdue_mask = overdue_inst & (due_naive >= week_np)
+        month_overdue_mask = overdue_inst & (due_naive >= month_np)
+        year_overdue_mask = overdue_inst & (due_naive >= year_np)
+
+        payment_stats = {
+            'today_paid': period_amount(today_paid_mask),
+            'today_overdue': period_amount(today_overdue_mask),
+            'week_paid': period_amount(week_paid_mask),
+            'week_overdue': period_amount(week_overdue_mask),
+            'month_paid': period_amount(month_paid_mask),
+            'month_overdue': period_amount(month_overdue_mask),
+            'year_paid': period_amount(year_paid_mask),
+            'year_overdue': period_amount(year_overdue_mask),
+            'total_overdue': float(overdue_amount.sum()),
+            'today_paid_projects': period_projects(today_paid_mask),
+            'today_overdue_projects': period_projects(today_overdue_mask),
+            'week_paid_projects': period_projects(week_paid_mask),
+            'week_overdue_projects': period_projects(week_overdue_mask),
+            'month_paid_projects': period_projects(month_paid_mask),
+            'month_overdue_projects': period_projects(month_overdue_mask),
+            'year_paid_projects': period_projects(year_paid_mask),
+            'year_overdue_projects': period_projects(year_overdue_mask),
+            'total_overdue_projects': period_projects(overdue_inst_now),
+        }
+
+        # Total due = overdue + installments still to fall due + outstanding balances
+        future_due = float(np.where(has_due & (due_naive >= today_np), amounts, 0.0).sum())
+        outstanding_total = float(outstanding_balance.sum())
         total_due = float(payment_stats['total_overdue']) + future_due + outstanding_total
         payment_stats['total_due'] = total_due
 
-        # Calculate payment reminders data
-        payment_reminders = get_payment_reminders_data(datamain2, get_dismissed_reminder_project_ids(cursor))
+        # Payment reminders are served by /api/payment-reminders, which already
+        # reads every project in SQL. Building a second copy here would add a
+        # per-installment Python walk to every dashboard load, so it is not
+        # computed on this path.
 
         # === MEMORY CLEANUP ===
         # Delete large DataFrames that are no longer needed
         del datamain
-        del datamain2
+        del payment_df
+        del payment_state
         del status_df
         del enquiriesdata
         del usersdata
         del adminsdata
         del maindata
-        del table_data
         gc.collect()
 
         return {
-            'payment_reminders': payment_reminders,
             'payment_stats': payment_stats,
             'start_of_week': start_of_week,
             'start_of_month': start_of_month,
@@ -37449,72 +37413,55 @@ def run1(userid):
 
 def get_installment_audit_data():
     with get_db() as (cursor, connection):
-        # Get all projects with LIMIT to avoid memory issues
-        query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
-        cursor.execute(query)
-        projects = cursor.fetchall()
-        column_names = [desc[0] for desc in cursor.description]
-        
-        df = pd.DataFrame(projects, columns=column_names)
-        
-        audit_results = []
-        
-        for _, row in df.iterrows():
-            project_id = row['id']
-            client_name = row['clientname']
-            project_name = row['projectname']
-            total_contract = float(row['totalcontractamount'] or 0)
-            deposit = float(row['depositorbullet'] or 0)
-            balance_due = total_contract - deposit
-            
-            # Calculate sum of all installments
-            sum_installments = 0
-            for i in range(1, 11):
-                amount_col = f'installment{i}amount'
-                if amount_col in row and pd.notna(row[amount_col]):
-                    sum_installments += float(row[amount_col])
-            
-            # Check if ALL scheduled payments have been made (no unpaid installments)
-            all_payments_made = True
-            for i in range(1, 11):
-                amount_col = f'installment{i}amount'
-                paid_date_col = f'installment{i}date'
-                if amount_col in row and pd.notna(row[amount_col]) and float(row[amount_col]) > 0:
-                    paid_date = row.get(paid_date_col)
-                    # If this installment is scheduled but NOT paid, mark as incomplete
-                    if not paid_date or pd.isna(paid_date):
-                        all_payments_made = False
-                        break
-            
-            variance = balance_due - sum_installments
-            has_variance = abs(variance) > 0.01  # Tolerance for floating point
-            
-            # Outstanding Payments = all payments made BUT variance exists
-            # This means the discrepancy can't be resolved by making remaining payments
-            is_outstanding = all_payments_made and has_variance
-            
-            # Determine status
-            if has_variance and is_outstanding:
-                status = 'Outstanding Payments'  # All payments made, but amount doesn't match
-            elif has_variance:
-                status = 'Variance'  # Variance exists, but some payments still pending
-            else:
-                status = 'Balanced'
-            
-            audit_results.append({
-                'project_id': project_id,
+        # Every project, payment columns only - the audit is a portfolio-wide
+        # check, so it can't stop at the newest 200 rows.
+        df = fetch_payment_df(cursor)
+        state = compute_payment_state(df)
+
+        contract = state['contract']
+        deposit = np.nan_to_num(
+            pd.to_numeric(df['depositorbullet'], errors='coerce').to_numpy(dtype=float), nan=0.0)
+        balance_due = contract - deposit
+        sum_installments = state['amounts'].sum(axis=1)
+
+        # All scheduled installments settled - so any difference can no longer
+        # be cleared by collecting what is still scheduled.
+        all_payments_made = state['all_paid']
+
+        variance = balance_due - sum_installments
+        has_variance = np.abs(variance) > 0.01  # Tolerance for floating point
+
+        # Outstanding Payments = all payments made BUT variance exists
+        is_outstanding = all_payments_made & has_variance
+
+        status = np.where(
+            is_outstanding, 'Outstanding Payments',
+            np.where(has_variance, 'Variance', 'Balanced'),
+        )
+
+        audit_results = [
+            {
+                'project_id': int(project_id),
                 'client_name': client_name,
                 'project_name': project_name,
-                'total_contract': round(total_contract, 2),
-                'deposit': round(deposit, 2),
-                'balance_due': round(balance_due, 2),
-                'sum_installments': round(sum_installments, 2),
-                'variance': round(variance, 2),
-                'has_variance': has_variance,
-                'is_outstanding': is_outstanding,
-                'status': status
-            })
-        
+                'total_contract': round(float(contract_amount), 2),
+                'deposit': round(float(deposit_amount), 2),
+                'balance_due': round(float(balance), 2),
+                'sum_installments': round(float(installments), 2),
+                'variance': round(float(project_variance), 2),
+                'has_variance': bool(project_has_variance),
+                'is_outstanding': bool(project_outstanding),
+                'status': project_status,
+            }
+            for project_id, client_name, project_name, contract_amount, deposit_amount,
+                balance, installments, project_variance, project_has_variance,
+                project_outstanding, project_status in zip(
+                    df['id'], df['clientname'], df['projectname'], contract, deposit,
+                    balance_due, sum_installments, variance, has_variance,
+                    is_outstanding, status,
+                )
+        ]
+
         return audit_results
 
 # Add this function to auto-correct a single project

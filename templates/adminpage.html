@@ -23804,6 +23804,8 @@ function displayAuditResults(auditData, stats) {
     // Update table
     const tbody = document.getElementById('auditResultsBody');
     tbody.innerHTML = '';
+    // One fragment keeps a portfolio-sized result set to a single reflow
+    const frag = document.createDocumentFragment();
     
     auditData.forEach(item => {
         const row = document.createElement('tr');
@@ -23842,8 +23844,9 @@ function displayAuditResults(auditData, stats) {
                 }
             </td>
         `;
-        tbody.appendChild(row);
+        frag.appendChild(row);
     });
+    tbody.appendChild(frag);
     
     // Update Auto-Correct All button state
     const autoCorrectAllBtn = document.getElementById('autoCorrectAllBtn');
@@ -31798,13 +31801,21 @@ $(document).ready(function() {
     if ($('#allpaymentscdTable').length && !$.fn.DataTable.isDataTable('#allpaymentscdTable')) {
         $('#allpaymentscdTable').DataTable({
             order: [],
-            paging: false,
+            // The table covers every project now, so page it instead of
+            // rendering the whole portfolio into the DOM at once.
+            paging: true,
+            pageLength: 50,
+            lengthChange: true,
+            lengthMenu: [[25, 50, 100, 250, -1], [25, 50, 100, 250, 'All']],
             searching: true,
             ordering: false,
-            info: false,
+            info: true,
             language: {
                 emptyTable: 'No payment records found',
-                search: "Search:"
+                search: "Search:",
+                info: "Showing _START_ to _END_ of _TOTAL_ projects",
+                infoEmpty: "Showing 0 to 0 of 0 projects",
+                lengthMenu: "_MENU_ per page"
             },
             columnDefs: [
                 { targets: [4,5], createdCell: function(td) { td.style.fontSize = '0.65rem'; td.style.whiteSpace = 'nowrap'; } }
