@@ -36957,6 +36957,109 @@ def compute_payment_state(df):
     }
 
 
+PROJECTS_TABLE_PAGE_SIZE = 200
+
+
+def build_projects_table_html(cursor, month=None, offset=0, limit=PROJECTS_TABLE_PAGE_SIZE):
+    """Render the projects table (or one page of it) for the projects portal.
+
+    The portal keeps only one page of rows in the browser, so the month filter
+    and the "Load More" button ask this helper for the rows they need instead of
+    filtering whatever rows happened to be in the first page.
+    """
+    where_sql = ''
+    where_params = []
+    if month:
+        where_sql = "WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s"
+        where_params.append(month)
+
+    cursor.execute(f"SELECT COUNT(*) FROM connectlinkdatabase {where_sql}", where_params)
+    total = int(cursor.fetchone()[0] or 0)
+
+    # momid numbers a project inside its deposit month. The window function sees
+    # the whole scope, so a single page keeps the same numbering it would have
+    # if every row were sent to the browser.
+    page_sql = f"""
+        SELECT *,
+               ROW_NUMBER() OVER (
+                   PARTITION BY TO_CHAR(datedepositorbullet, 'YYYY-MM')
+                   ORDER BY datedepositorbullet ASC
+               ) AS momid_sql
+        FROM connectlinkdatabase
+        {where_sql}
+        ORDER BY id DESC
+    """
+    page_params = list(where_params)
+    if limit:
+        page_sql += " LIMIT %s OFFSET %s"
+        page_params.extend([int(limit), int(offset)])
+
+    cursor.execute(page_sql, page_params)
+    maindata = cursor.fetchall()
+    column_names = [desc[0] for desc in cursor.description]
+
+    # Use the actual column names from the database
+    datamain = pd.DataFrame(maindata, columns=column_names)
+
+    # ===== CRITICAL: Process columns in correct order =====
+    # Step 1: momid comes from SQL, the rest of the dates are formatted here
+    datamain['momid'] = datamain['momid_sql'].fillna(0).astype(int)
+    datamain = datamain.drop(columns=['momid_sql'])
+    datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'], errors='coerce')
+    datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate'], errors='coerce')
+
+    # Step 2: Fill NaT dates with sentinel
+    datamain['datedepositorbullet'] = datamain['datedepositorbullet'].fillna(pd.Timestamp('2099-12-31'))
+    datamain['projectstartdate'] = datamain['projectstartdate'].fillna(pd.Timestamp('2099-12-31'))
+
+    # Step 3: Format dates for display
+    datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
+    datamain['projectstartdate'] = datamain['projectstartdate'].dt.strftime('%d %B %Y')
+
+    # Step 4: Rename quotation_id to QREF BEFORE Action creation
+    datamain = datamain.rename(columns={'quotation_id': 'QREF'})
+
+    # Step 5: Remember which projects have a linked quotation (raw, pre-badge)
+    datamain['_has_q'] = datamain['QREF'].apply(
+        lambda x: 1 if (pd.notna(x) and str(x).strip() and str(x).strip().lower() not in ('nan', 'none', 'n/a', 'null')) else 0
+    )
+
+    # Step 6: Format QREF column
+    datamain['QREF'] = datamain['QREF'].apply(
+        lambda x: f'<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == ''
+        else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
+    )
+
+    # Step 7: Create Action column (uses raw id/clientname values for data attributes)
+    datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row['clientname']}" data-client-wa-number="{row['clientwanumber']}" data-has-quotation="{row['_has_q']}" onclick="return handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
+
+    # Step 8: Sort by ID
+    datamain = datamain.sort_values('id', ascending=False)
+
+    # Step 9: Define the EXACT 61 columns needed
+    final_columns_to_select = [
+        'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+        'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
+        'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate',
+        'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay',
+        'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment',
+        'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate',
+        'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
+        'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date',
+        'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate',
+        'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount',
+        'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date',
+        'projectcompletionstatus', 'latepaymentinterest', 'id', 'QREF', 'Action'
+    ]
+
+    # Select ONLY columns that exist - no padding, just reorder what we have
+    cols_that_exist = [col for col in final_columns_to_select if col in datamain.columns]
+    datamain = datamain[cols_that_exist]
+
+    table_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False, escape=False)
+    return table_html, total, len(datamain)
+
+
 def run1(userid):
 
     update_project_completion_status()
@@ -37125,76 +37228,42 @@ def run1(userid):
         frequencies_list = [int(row[1]) for row in location_rows]
         most_frequent_location = max(location_rows, key=lambda row: row[1])[0] if location_rows else 'N/A'
 
-        # Only select needed columns to minimize memory - avoid large text fields if possible
-        maindataquery = f"SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
-        cursor.execute(maindataquery)
-        maindata = cursor.fetchall()
-        column_names = [desc[0] for desc in cursor.description]
+        # Month options drive the projects portal filter, so they are built before
+        # the table is rendered: the first page must belong to the month the
+        # dropdown shows, otherwise filtering looks broken ("no projects").
+        cursor.execute("""
+            SELECT DISTINCT 
+                TO_CHAR(datedepositorbullet, 'Mon-YYYY') as month_display,
+                TO_CHAR(datedepositorbullet, 'YYYY-MM') as month_value,
+                MAX(datedepositorbullet) as max_date
+            FROM connectlinkdatabase 
+            WHERE datedepositorbullet IS NOT NULL
+            GROUP BY TO_CHAR(datedepositorbullet, 'Mon-YYYY'), TO_CHAR(datedepositorbullet, 'YYYY-MM')
+            ORDER BY MAX(datedepositorbullet) DESC
+        """)
 
-        # Use the actual column names from the database
-        datamain = pd.DataFrame(maindata, columns=column_names)
-
-        # ===== CRITICAL: Process columns in correct order =====
-        # Step 1: Process dates first
-        datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'], errors='coerce')
-        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate'], errors='coerce')
-        
-        # Step 2: Fill NaT dates with sentinel before any operations
-        datamain['datedepositorbullet'] = datamain['datedepositorbullet'].fillna(pd.Timestamp('2099-12-31'))
-        datamain['projectstartdate'] = datamain['projectstartdate'].fillna(pd.Timestamp('2099-12-31'))
-        
-        # Step 3: Calculate momid BEFORE reordering (uses datetime format)
-        datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).fillna(0).astype(int)
-        
-        # Step 4: NOW format dates for display
-        datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
-        datamain['projectstartdate'] = datamain['projectstartdate'].dt.strftime('%d %B %Y')
-
-        # Step 3: Rename quotation_id to QREF BEFORE Action creation
-        datamain = datamain.rename(columns={'quotation_id': 'QREF'})
-
-        # Step 3b: Remember which projects have a linked quotation (raw, pre-badge)
-        datamain['_has_q'] = datamain['QREF'].apply(
-            lambda x: 1 if (pd.notna(x) and str(x).strip() and str(x).strip().lower() not in ('nan', 'none', 'n/a', 'null')) else 0
-        )
-
-        # Step 4: Format QREF column
-        datamain['QREF'] = datamain['QREF'].apply(
-            lambda x: f'<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == '' 
-            else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
-        )
-        
-        # Step 5: Create Action column (uses raw id/clientname values for data attributes)
-        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row['clientname']}" data-client-wa-number="{row['clientwanumber']}" data-has-quotation="{row['_has_q']}" onclick="return handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
-        
-        # Step 6: Sort by ID
-        datamain = datamain.sort_values('id', ascending=False)
-        
-        # Step 7: Define the EXACT 61 columns needed
-        final_columns_to_select = [
-            'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',  
-            'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',  
-            'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate',  
-            'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay',  
-            'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment',  
-            'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate',  
-            'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',  
-            'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date',  
-            'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate',  
-            'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount',  
-            'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date',  
-            'projectcompletionstatus', 'latepaymentinterest', 'id', 'QREF', 'Action'
+        month_options = cursor.fetchall()
+        month_options_list = [
+            {'display': row[0], 'value': row[1], 'date': row[2]} 
+            for row in month_options
         ]
         
-        # Select ONLY columns that exist - no padding, just reorder what we have
-        cols_that_exist = [col for col in final_columns_to_select if col in datamain.columns]
-        datamain = datamain[cols_that_exist]
-        
-        # DEBUG: Print columns for verification
-        final_cols_list = list(datamain.columns)
-        print(f"\nFinal table has {len(final_cols_list)} columns: {final_cols_list}")
+        # Add "All" option at the end
+        month_options_list.append({'display': 'All', 'value': 'all', 'date': None})
 
-        table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
+        # ?month=YYYY-MM keeps the chosen month across refreshes and deep links.
+        requested_month = (request.args.get('month') or '').strip()
+        available_months = {opt['value'] for opt in month_options_list if opt['value'] != 'all'}
+        if requested_month in available_months:
+            selected_month = requested_month
+        elif month_options_list:
+            selected_month = month_options_list[0]['value']
+        else:
+            selected_month = 'all'
+
+        table_datamain_html, projects_table_total, projects_table_loaded = build_projects_table_html(
+            cursor, month=None if selected_month == 'all' else selected_month
+        )
 
         detailscompquery = f"SELECT * FROM connectlinkdetails;"
         cursor.execute(detailscompquery)
@@ -37211,28 +37280,9 @@ def run1(userid):
         compemail = detailscompdata.iat[0, col_names.index('email')] if not detailscompdata.empty and 'email' in col_names else ""
         tinnumber = detailscompdata.iat[0, col_names.index('tinnumber')] if not detailscompdata.empty and 'tinnumber' in col_names else ""
         
-        cursor.execute("""
-            SELECT DISTINCT 
-                TO_CHAR(datedepositorbullet, 'Mon-YYYY') as month_display,
-                TO_CHAR(datedepositorbullet, 'YYYY-MM') as month_value,
-                MAX(datedepositorbullet) as max_date
-            FROM connectlinkdatabase 
-            WHERE datedepositorbullet IS NOT NULL
-            GROUP BY TO_CHAR(datedepositorbullet, 'Mon-YYYY'), TO_CHAR(datedepositorbullet, 'YYYY-MM')
-            ORDER BY MAX(datedepositorbullet) DESC
-        """)
-        
-        month_options = cursor.fetchall()
-        month_options_list = [
-            {'display': row[0], 'value': row[1], 'date': row[2]} 
-            for row in month_options
-        ]
-        
-        # Add "All" option at the end
-        month_options_list.append({'display': 'All', 'value': 'all', 'date': None})
         enquiries_data = get_enquiries_data()
         
-        # Payment state covers the whole portfolio, not just the 200 rows the
+        # Payment state covers the whole portfolio, not just the page of rows the
         # projects table shows. It is computed once here and reused by the
         # payment cards and the payment status table.
         payment_df = fetch_payment_df(cursor)
@@ -37377,14 +37427,12 @@ def run1(userid):
 
         # === MEMORY CLEANUP ===
         # Delete large DataFrames that are no longer needed
-        del datamain
         del payment_df
         del payment_state
         del status_df
         del enquiriesdata
         del usersdata
         del adminsdata
-        del maindata
         gc.collect()
 
         return {
@@ -37394,6 +37442,9 @@ def run1(userid):
             'start_of_year': start_of_year,
             'status_df_html': status_df_html,
             'month_options': month_options_list,
+            'selected_month': selected_month,
+            'projects_table_total': projects_table_total,
+            'projects_table_loaded': projects_table_loaded,
             "usersdatamain_html": usersdatamain_html,
             "table_datamain_html": table_datamain_html,
             'table_datamain_admins_html': table_datamain_admins_html,
@@ -38564,6 +38615,45 @@ def download_portfolio():
         import traceback
         traceback.print_exc()
         return "Error generating download", 500
+
+
+@app.route('/api/projects-table')
+def api_projects_table():
+    """One page of the projects table (as HTML), optionally for a single month.
+
+    The projects portal keeps a single page of rows in the browser, so changing
+    the month filter or pressing "Load More" fetches the rows it needs here
+    instead of filtering whatever rows happen to be loaded.
+    """
+    month = (request.args.get('month') or '').strip()
+    if month in ('', 'all'):
+        month = None
+    elif not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', month):
+        return jsonify({'success': False, 'error': 'Invalid month, expected YYYY-MM'}), 400
+
+    offset = max(request.args.get('offset', 0, type=int) or 0, 0)
+    limit = request.args.get('limit', PROJECTS_TABLE_PAGE_SIZE, type=int) or PROJECTS_TABLE_PAGE_SIZE
+    limit = max(1, min(limit, 500))
+
+    try:
+        with get_db() as (cursor, connection):
+            table_html, total, loaded = build_projects_table_html(
+                cursor, month=month, offset=offset, limit=limit
+            )
+
+        return jsonify({
+            'success': True,
+            'table_html': table_html,
+            'month': month or 'all',
+            'offset': offset,
+            'limit': limit,
+            'total': total,
+            'loaded': loaded,
+            'has_more': (offset + loaded) < total
+        })
+    except Exception as e:
+        print(f"Error fetching projects table: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/projects-page')
